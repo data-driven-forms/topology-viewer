@@ -52,21 +52,26 @@ export const edges = [
   {
     source: 1,
     target: 4,
+    id:'1-4'
   },
   {
     source: 2,
     target: 5,
+    id:'2-5'
   },
   {
     source: 0,
     target: 1,
+    id:'0-1'
   },
   {
     source: 0,
     target: 2,
+    id:'0-2'
   },
   {
     source: 1,
     target: 3,
+    id:'1-3'
   },
 ];

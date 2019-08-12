@@ -1,7 +1,6 @@
-import React, { Component, createRef, useEffect, useRef } from 'react';
+import React, { Component, createRef } from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
-import _ from 'lodash';
 
 function getNodeColor() {
   return 'green';
@@ -18,6 +17,8 @@ class TopologyCanvas extends Component {
     this.textElements = [];
     this.nodeElements = [];
     this.linkElements = [];
+    this.groupElements = [];
+    this.groups = {};
     window.magix = this;
   }
 
@@ -56,6 +57,7 @@ class TopologyCanvas extends Component {
     // remove deleted nodes
     if (obsoleteNodes.length > 0) {
       const obsoleteEdges = edges.filter(({ id }) => !this.props.edges.find(edge => id === edge.id));
+      console.log(obsoleteEdges);
       obsoleteEdges.forEach(({ id }) => {
         this.svg.select('#edges').select(`#link-${id}`).remove();
         this.linkElements.select('#edges').select(`#link-${id}`).remove();
@@ -123,9 +125,32 @@ class TopologyCanvas extends Component {
     .attr('id', node => `title-${node.id}`)
     .attr('dx',  - (NODE_SIZE / 2))
     .attr('dy', NODE_SIZE + 15);
+
     this.textElements = textElements.merge(this.textElements);
 
     this.simulation.nodes(this.nodes).on('tick', this.ticked);
+
+    this.svg.select('#groups').selectAll('rect').remove();
+    this.groups = {};
+    this.simulation.nodes().forEach(node => {
+      if (!this.groups[node.group]) {
+        this.groups[node.group] = [];
+      }
+
+      this.groups[node.group].push(node);
+    });
+
+    const groupElements = this.svg
+    .select('#groups')
+    .selectAll('rect')
+    .data(Object.values(this.groups))
+    .enter()
+    .append('rect')
+    .attr('fill', 'blue');
+
+    this.groupElements = groupElements;
+
+    //this.simulation.nodes(this.nodes).on('tick', this.ticked);
     this.simulation.force('link').links(this.edges);
   }
 
@@ -140,6 +165,8 @@ class TopologyCanvas extends Component {
     const forceX = d3.forceX(width / 2).strength(0.21);
     const forceY = d3.forceY(height / 2).strength(0.21);
 
+    this.groupElemens = this.svg.append('g')
+    .attr('id', 'groups');
     this.linkElements = this.svg.append('g')
     .attr('id', 'edges');
     this.nodeElements = this.svg.append('g')
@@ -147,8 +174,11 @@ class TopologyCanvas extends Component {
     this.textElements = this.svg.append('g')
     .attr('id', 'labels');
 
+    /**
+     * create main simulation for graph
+     */
     this.simulation = d3.forceSimulation()
-    .force('charge', d3.forceManyBody().strength(-25).distanceMin(100).distanceMax(400))
+    .force('charge', d3.forceManyBody().strength(-1000).distanceMin(100).distanceMax(400))
     .force('x', forceX)
     .force('y',  forceY)
     .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2));
@@ -156,7 +186,7 @@ class TopologyCanvas extends Component {
     this.simulation.force('link', d3.forceLink()
     .id(node => node.id)
     .distance(() => 150)
-    .strength(() => 0.5));
+    .strength((link) => link.source.group === link.source.target ? 0.25 : 0.5));
 
     window.addEventListener('resize', () => {
       const { width, height } = this.svgRef.current.getBoundingClientRect();
@@ -188,14 +218,19 @@ class TopologyCanvas extends Component {
     this.textElements
     .attr('x', node => Math.max(NODE_SIZE + 5, Math.min(width - NODE_SIZE - 5, node.x)))
     .attr('y', node => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, node.y)));
+    this.groupElements
+    .attr('fill', data => {
+      return 'blue';
+    })
+    .attr('opacity', 0.5)
+    .attr('y', data => Math.min(...data.map(({ y }) => y)) - NODE_SIZE * 2)
+    .attr('x', data => Math.min(...data.map(({ x }) => x)) - NODE_SIZE * 2)
+    .attr('width', data => Math.max(...data.map(({ x }) => x)) - Math.min(...data.map(({ x }) => x)) + (NODE_SIZE * 4))
+    .attr('height', data => Math.max(...data.map(({ y }) => y)) - Math.min(...data.map(({ y }) => y)) + (NODE_SIZE * 4));
   }
 
   render() {
-    return (
-      <React.Fragment>
-        <svg style={{ width: '100%', height: '100%' }} ref={this.svgRef} id="svg" />
-      </React.Fragment>
-    );
+    return <svg style={{ width: '100%', height: '100%' }} ref={this.svgRef} id="svg" />;
 
   }
 }

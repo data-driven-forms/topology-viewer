@@ -4,7 +4,7 @@ export const nodes = [
     title: 'Yang',
     size: 24,
     fonticon: 'fa fa-cloud',
-    depth: 3,
+    group: 50,
     status: 'valid',
   },
   {
@@ -12,7 +12,7 @@ export const nodes = [
     title: 'Gray',
     size: 24,
     fonticon: 'fa fa-cloud',
-    depth: 3,
+    group: 3,
     status: 'valid',
   },
   {
@@ -20,7 +20,7 @@ export const nodes = [
     title: 'Maddox',
     size: 24,
     fileicon: 'https://www.svgrepo.com/show/5386/speedometer.svg',
-    depth: 3,
+    group: 3,
     status: 'warning',
   },
   {
@@ -28,7 +28,7 @@ export const nodes = [
     title: 'Levy',
     size: 24,
     fonticon: 'fa fa-cog',
-    depth: 1,
+    group: 1,
     status: 'valid',
   },
   {
@@ -36,7 +36,7 @@ export const nodes = [
     title: 'Celina',
     size: 24,
     fonticon: 'fa fa-cloud',
-    depth: 2,
+    group: 2,
     status: 'warning',
   },
   {
@@ -44,7 +44,7 @@ export const nodes = [
     title: 'Nancy',
     size: 24,
     fonticon: 'fa fa-cloud',
-    depth: 2,
+    group: 2,
     status: 'critical',
   },
 ];
@@ -52,26 +52,26 @@ export const edges = [
   {
     source: 1,
     target: 4,
-    id:'1-4'
+    id: '1-4',
   },
   {
     source: 2,
     target: 5,
-    id:'2-5'
+    id: '2-5',
   },
   {
     source: 0,
     target: 1,
-    id:'0-1'
+    id: '0-1',
   },
   {
     source: 0,
     target: 2,
-    id:'0-2'
+    id: '0-2',
   },
   {
     source: 1,
     target: 3,
-    id:'1-3'
+    id: '1-3',
   },
 ];

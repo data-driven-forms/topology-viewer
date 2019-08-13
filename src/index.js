@@ -19,6 +19,8 @@ class TopologyCanvas extends Component {
     this.linkElements = [];
     this.groupElements = [];
     this.groups = {};
+    this.levelElements = [];
+    this.levelGroup;
     window.magix = this;
   }
 
@@ -131,14 +133,32 @@ class TopologyCanvas extends Component {
     this.simulation.nodes(this.nodes).on('tick', this.ticked);
 
     this.svg.select('#groups').selectAll('rect').remove();
+    this.svg.select('#levels').selectAll('rect').remove();
     this.groups = {};
     this.simulation.nodes().forEach(node => {
       if (!this.groups[node.group]) {
-        this.groups[node.group] = [];
+        this.groups[node.group] = {
+          nodes: [],
+          levels: {},
+        };
       }
 
-      this.groups[node.group].push(node);
+      this.groups[node.group].nodes.push(node);
     });
+
+    Object.keys(this.groups).forEach(key => {
+      const levelValues = Array.from(new Set(this.groups[key].nodes.filter(({ level }) => level !== undefined).map(({  level }) => level)));
+      const levels = levelValues.reduce((acc, curr) => ({ ...acc, [curr]: []}), {});
+      this.groups[key].nodes.forEach(node => {
+        if (node.level !== undefined) {
+          const includeInto = levelValues.filter(level => level <= node.level);
+          includeInto.forEach(level => levels[level].push(node));
+        }
+      });
+      this.groups[key].levels = levels;
+    });
+
+    console.log(this.groups);
 
     const groupElements = this.svg
     .select('#groups')
@@ -150,7 +170,20 @@ class TopologyCanvas extends Component {
 
     this.groupElements = groupElements;
 
-    //this.simulation.nodes(this.nodes).on('tick', this.ticked);
+    const allLevels = Object.values(this.groups)
+    .filter(({ levels }) => levels && Object.keys(levels).length > 0)
+    .map(({ levels }) => Object.values(levels)).flat();
+
+    const levelElements = this.svg
+    .select('#levels')
+    .selectAll('g')
+    .append('g')
+    .data(allLevels)
+    .enter()
+    .append('rect')
+    .attr('fill', 'red');
+    this.levelElements = levelElements;
+
     this.simulation.force('link').links(this.edges);
   }
 
@@ -167,6 +200,8 @@ class TopologyCanvas extends Component {
 
     this.groupElemens = this.svg.append('g')
     .attr('id', 'groups');
+    this.levelGroup = this.svg.append('g')
+    .attr('id', 'levels');
     this.linkElements = this.svg.append('g')
     .attr('id', 'edges');
     this.nodeElements = this.svg.append('g')
@@ -223,10 +258,16 @@ class TopologyCanvas extends Component {
       return 'blue';
     })
     .attr('opacity', 0.5)
-    .attr('y', data => Math.min(...data.map(({ y }) => y)) - NODE_SIZE * 2)
-    .attr('x', data => Math.min(...data.map(({ x }) => x)) - NODE_SIZE * 2)
-    .attr('width', data => Math.max(...data.map(({ x }) => x)) - Math.min(...data.map(({ x }) => x)) + (NODE_SIZE * 4))
-    .attr('height', data => Math.max(...data.map(({ y }) => y)) - Math.min(...data.map(({ y }) => y)) + (NODE_SIZE * 4));
+    .attr('y', ({ nodes }) => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
+    .attr('x', ({ nodes }) => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2)
+    .attr('width', ({ nodes }) => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
+    .attr('height', ({ nodes }) => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
+    this.levelElements
+    .attr('opacity', 0.25)
+    .attr('y', nodes => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
+    .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2)
+    .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
+    .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
   }
 
   render() {

@@ -16,19 +16,23 @@ class TopologyWrapper extends React.Component {
   }
 
   invokeAddParent = (node) => {
-    console.log('node: ', node, this.state.add)
-    if(this.state.add && node.id === 0) {
+    console.log('node: ', node, this.state.add);
+    if (this.state.add && node.id === 0) {
       this.setState(prevState => ({
         add: !prevState.add,
-        nodes: [...prevState.nodes, { id: 'child', title: 'Child to be removed' }, { id: 'child-2', title: 'Child 2 to be removed' }],
-        edges: [...prevState.edges, { source: 0, target: 'child', id: '0-child' }, { source: 0, target: 'child-2', id: '0-child-2' }]
-      }))
+        nodes: [
+          ...prevState.nodes,
+          { id: 'child', title: 'Child to be removed', group: 1, level: 2 },
+          { id: 'child-2', group: 1, title: 'Child 2 to be removed', level: 2 },
+        ],
+        edges: [ ...prevState.edges, { source: 0, target: 'child', id: '0-child' }, { source: 0, target: 'child-2', id: '0-child-2' }],
+      }));
     } else if (!this.state.add && node.id === 0) {
       this.setState(prevState => ({
         add: !prevState.add,
-        nodes: [...n],
-        edges: [...e]
-      }))
+        nodes: [ ...n ],
+        edges: [ ...e ],
+      }));
     }
   }
 

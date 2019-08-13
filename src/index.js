@@ -91,6 +91,17 @@ class TopologyCanvas extends Component {
       }
     }
 
+    const nodeIds = this.nodes.map(({ id }) => id);
+    const firstSet = nodeIds.slice(0, nodeIds.length / 2);
+    const secondSet = nodeIds.slice(nodeIds.length / 2);
+    console.log('sets: ', firstSet, secondSet);
+    let invisibleEdges = [];
+    firstSet.forEach(id => {
+      invisibleEdges = [ ...invisibleEdges, ...secondSet.map(node => ({ source: node, target: id, type: 'invisible' })) ];
+    });
+    this.edges = [ ...this.edges, ...invisibleEdges ];
+    console.log('invisible: ', invisibleEdges);
+
     // re-render graph elements
     const linkElements = this.svg
     .select('#edges')
@@ -213,15 +224,19 @@ class TopologyCanvas extends Component {
      * create main simulation for graph
      */
     this.simulation = d3.forceSimulation()
-    .force('charge', d3.forceManyBody().strength(-1000).distanceMin(100).distanceMax(400))
+    .force('charge', d3.forceManyBody().strength(-20).distanceMin(100).distanceMax(800))
     .force('x', forceX)
     .force('y',  forceY)
     .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2));
 
     this.simulation.force('link', d3.forceLink()
     .id(node => node.id)
-    .distance(() => 150)
-    .strength((link) => link.source.group === link.source.target ? 0.25 : 0.5));
+    .distance(link => {
+      return link.source.group !== link.target.group ? 500 : 150;
+    })
+    .strength((link) => {
+      return link.source.group !== link.target.group ? 1 : 0.25;
+    }));
 
     window.addEventListener('resize', () => {
       const { width, height } = this.svgRef.current.getBoundingClientRect();
@@ -249,7 +264,10 @@ class TopologyCanvas extends Component {
     .attr('x1', ({ source: { x }}) => Math.max(x + 5, Math.min(width - NODE_SIZE - 5, x)))
     .attr('y1', ({ source: { y }}) => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, y)))
     .attr('x2', ({ target: { x }}) => Math.max(x + 5, Math.min(width - NODE_SIZE - 5, x)))
-    .attr('y2', ({ target: { y }}) => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, y)));
+    .attr('y2', ({ target: { y }}) => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, y)))
+    .attr('stroke', ({ type }) => {
+      return type === 'invisible' ? 'transparent' : 'red';
+    });
     this.textElements
     .attr('x', node => Math.max(NODE_SIZE + 5, Math.min(width - NODE_SIZE - 5, node.x)))
     .attr('y', node => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, node.y)));

@@ -20,6 +20,18 @@ class TopologyCanvas extends Component {
     this.groupElements = [];
     this.groups = {};
     this.levelElements = [];
+    this.overflowIndicators = [
+      { position: 'top', nodes: []},
+      { position: 'left', nodes: []},
+      { position: 'bottom', nodes: []},
+      { position: 'right', nodes: []},
+    ];
+    this.overflowIndicatorsText = [];
+    this.transform = {
+      x: 0,
+      y: 0,
+      k: 1,
+    };
     this.levelGroup;
     this.minZoom = 1;
     this.maxZoom = 10;
@@ -28,6 +40,8 @@ class TopologyCanvas extends Component {
 
   zoomed = () => {
     const currentTransform = d3.event.transform;
+    this.transform = currentTransform;
+    this.simulation.on('tick')();
     this.svg.attr('transform', currentTransform);
   }
 
@@ -125,6 +139,8 @@ class TopologyCanvas extends Component {
 
     this.svg.select('#groups').selectAll('rect').remove();
     this.svg.select('#levels').selectAll('rect').remove();
+    this.svg.select('#overflow').selectAll('rect').remove();
+    this.svg.select('#overflow').selectAll('text').remove();
     this.groups = {};
     this.simulation.nodes().forEach(node => {
       if (!this.groups[node.group]) {
@@ -173,6 +189,22 @@ class TopologyCanvas extends Component {
     .attr('fill', 'red');
     this.levelElements = levelElements;
 
+    this.overflowIndicators = this.overflowIndicators.map(indicator => ({ ...indicator, nodes: this.simulation.nodes() }));
+
+    this.overflowIndicatorsElements = this.svg
+    .select('#overflow')
+    .selectAll('rect')
+    .data(this.overflowIndicators)
+    .enter()
+    .append('rect');
+
+    this.overflowIndicatorsText = this.svg
+    .select('#overflow')
+    .selectAll('text')
+    .data(this.overflowIndicators)
+    .enter()
+    .append('text');
+
     this.simulation.force('link').links(this.edges);
   }
 
@@ -210,7 +242,7 @@ class TopologyCanvas extends Component {
   }
 
   componentDidMount() {
-    this.svg = d3.select(this.svgRef.current).append('g');
+    this.svg = d3.select(this.svgRef.current).append('g').attr('id', 'container').attr('transform', 'translate(0, 0) scale(1)');
     const { width, height } = this.svgRef.current.getBoundingClientRect();
     const forceX = d3.forceX(width / 2).strength(0.21);
     const forceY = d3.forceY(height / 2).strength(0.21);
@@ -225,6 +257,8 @@ class TopologyCanvas extends Component {
     .attr('id', 'nodes');
     this.textElements = this.svg.append('g')
     .attr('id', 'labels');
+    this.overflowIndicatorsElements = this.svg.append('g')
+    .attr('id', 'overflow');
 
     /**
      * create main simulation for graph
@@ -234,11 +268,14 @@ class TopologyCanvas extends Component {
     .force('x', forceX)
     .force('y',  forceY)
     .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2));
+    this.zoom = d3.zoom().scaleExtent([ .1, 4 ])
+    .on('zoom', () => {
+      this.transform = d3.event.transform;
+      this.simulation.on('tick')();
+      this.svg.attr('transform', d3.event.transform);
+    });
 
-    d3.select(this.svgRef.current).call(
-      d3.zoom().scaleExtent([ .1, 4 ])
-      .on('zoom', () => this.svg.attr('transform', d3.event.transform))
-    );
+    d3.select(this.svgRef.current).call(this.zoom);
 
     this.simulation.force('link', d3.forceLink()
     .id(node => node.id)
@@ -297,11 +334,43 @@ class TopologyCanvas extends Component {
     .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2)
     .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
     .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
+    this.overflowIndicatorsElements
+    .attr('opacity', '0.75')
+    .attr('fill', 'green')
+    .attr('x', ({ position }) => (this.calculateIndicatorX(position, width) - this.transform.x) * (1 / this.transform.k))
+    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height) - this.transform.y) * (1 / this.transform.k))
+    .attr('width', () => 20 * (1 / this.transform.k))
+    .attr('height', () => 20 * (1 / this.transform.k));
+    this.overflowIndicatorsText
+    .attr('font-size', 15 * (1 / this.transform.k))
+    .attr('x', ({ position }) => (this.calculateIndicatorX(position, width) - this.transform.x) * (1 / this.transform.k))
+    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height) + 15 - this.transform.y) * (1 / this.transform.k))
+    .text((data) => this.calculateBottomOverflow(data.position, data.nodes, height, width));
   }
+
+  calculateBottomOverflow = (position, nodes, height, width) => ({
+    bottom: nodes.filter(({ y }) => (y * this.transform.k + this.transform.y) > height).length,
+    top: nodes.filter(({ y }) => (y * this.transform.k + this.transform.y) < 0).length,
+    right: nodes.filter(({ x }) => (x * this.transform.k + this.transform.x) > width).length,
+    left: nodes.filter(({ x }) => (x * this.transform.k + this.transform.x) < 0).length,
+  })[position]
+
+  calculateIndicatorX = (position, width) => ({
+    top: width / 2,
+    bottom: width / 2,
+    left: 0,
+    right: width - 20,
+  })[position]
+
+  calculateIndicatorY = (position, height) => ({
+    top: 0,
+    bottom: height - 20,
+    left: height / 2,
+    right: height / 2 - 40,
+  })[position]
 
   render() {
     return <svg style={{ width: '100%', height: '100%' }} ref={this.svgRef} id="svg" />;
-
   }
 }
 

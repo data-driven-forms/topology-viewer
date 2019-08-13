@@ -21,36 +21,15 @@ class TopologyCanvas extends Component {
     this.groups = {};
     this.levelElements = [];
     this.levelGroup;
+    this.minZoom = 1;
+    this.maxZoom = 10;
     window.magix = this;
   }
 
-  dragDrop = d3.drag()
-  .on('start', () => {
-    if (!d3.event.active) {
-      this.simulation.alphaTarget(0.1).restart();
-    }
-
-    d3.event.subject.fx = d3.event.subject.x;
-    d3.event.subject.fy = d3.event.subject.y;
-    d3.event.subject.dragStart = true;
-  })
-  .on('drag', () => {
-    d3.event.subject.fx += d3.event.dx / this.transform.k;
-    d3.event.subject.fy += d3.event.dy / this.transform.k;
-    d3.event.subject.dragStart = false;
-  })
-  .on('end', () => {
-    if (!d3.event.active) {
-      this.simulation.alphaTarget(0);
-    }
-
-    if (d3.event.subject.dragStart) {
-      d3.event.subject.fx = null;
-      d3.event.subject.fy = null;
-    }
-
-    delete d3.event.subject.dragStart;
-  });
+  zoomed = () => {
+    const currentTransform = d3.event.transform;
+    this.svg.attr('transform', currentTransform);
+  }
 
   updateGraph = ({ nodes, edges }) => {
     const { width, height } = this.svgRef.current.getBoundingClientRect();
@@ -59,7 +38,6 @@ class TopologyCanvas extends Component {
     // remove deleted nodes
     if (obsoleteNodes.length > 0) {
       const obsoleteEdges = edges.filter(({ id }) => !this.props.edges.find(edge => id === edge.id));
-      console.log(obsoleteEdges);
       obsoleteEdges.forEach(({ id }) => {
         this.svg.select('#edges').select(`#link-${id}`).remove();
         this.linkElements.select('#edges').select(`#link-${id}`).remove();
@@ -94,13 +72,11 @@ class TopologyCanvas extends Component {
     const nodeIds = this.nodes.map(({ id }) => id);
     const firstSet = nodeIds.slice(0, nodeIds.length / 2);
     const secondSet = nodeIds.slice(nodeIds.length / 2);
-    console.log('sets: ', firstSet, secondSet);
     let invisibleEdges = [];
     firstSet.forEach(id => {
       invisibleEdges = [ ...invisibleEdges, ...secondSet.map(node => ({ source: node, target: id, type: 'invisible' })) ];
     });
     this.edges = [ ...this.edges, ...invisibleEdges ];
-    console.log('invisible: ', invisibleEdges);
 
     // re-render graph elements
     const linkElements = this.svg
@@ -123,8 +99,12 @@ class TopologyCanvas extends Component {
     .attr('r', NODE_SIZE)
     .attr('fill', getNodeColor)
     .attr('id', node => node.id)
-    .on('click', this.props.handleNodeClick)
-    .call(this.dragDrop);
+    .on('click', node => {
+      node.fx = null;
+      node.xy = null;
+      return this.props.handleNodeClick(node);
+    })
+    .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded));
 
     this.nodeElements = nodeElements.merge(this.nodeElements);
 
@@ -169,8 +149,6 @@ class TopologyCanvas extends Component {
       this.groups[key].levels = levels;
     });
 
-    console.log(this.groups);
-
     const groupElements = this.svg
     .select('#groups')
     .selectAll('rect')
@@ -202,10 +180,38 @@ class TopologyCanvas extends Component {
     this.updateGraph(prevProps);
   }
 
+  dragStarted = (d) => {
+    d3.event.sourceEvent.stopPropagation();
+    if (!d3.event.active) {this.simulation.alphaTarget(0.3).restart();}
+
+    d.fx = d.x;
+    d.fy = d.y;
+  }
+
+  dragged = (d) => {
+    d.fx = d3.event.x;
+    d.fy = d3.event.y;
+  }
+
+  dragEnded = (d) => {
+    if (!d3.event.active) {
+      this.simulation.alphaTarget(0);
+    }
+
+    if (d3.event.subject.dragStart) {
+      d.fx = null;
+      d.fy = null;
+
+    } else {
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+
+  }
+
   componentDidMount() {
-    this.svg = d3.select(this.svgRef.current);
+    this.svg = d3.select(this.svgRef.current).append('g');
     const { width, height } = this.svgRef.current.getBoundingClientRect();
-    this.transform = d3.zoomIdentity;
     const forceX = d3.forceX(width / 2).strength(0.21);
     const forceY = d3.forceY(height / 2).strength(0.21);
 
@@ -228,6 +234,11 @@ class TopologyCanvas extends Component {
     .force('x', forceX)
     .force('y',  forceY)
     .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2));
+
+    d3.select(this.svgRef.current).call(
+      d3.zoom().scaleExtent([ .1, 4 ])
+      .on('zoom', () => this.svg.attr('transform', d3.event.transform))
+    );
 
     this.simulation.force('link', d3.forceLink()
     .id(node => node.id)
@@ -258,19 +269,19 @@ class TopologyCanvas extends Component {
   ticked = () => {
     const { width, height } = this.svgRef.current.getBoundingClientRect();
     this.nodeElements
-    .attr('cx', node => Math.max(NODE_SIZE + 5, Math.min(width - NODE_SIZE - 5, node.x)))
-    .attr('cy', node => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, node.y)));
+    .attr('cx', node => node.x)
+    .attr('cy', node => node.y);
     this.linkElements
-    .attr('x1', ({ source: { x }}) => Math.max(x + 5, Math.min(width - NODE_SIZE - 5, x)))
-    .attr('y1', ({ source: { y }}) => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, y)))
-    .attr('x2', ({ target: { x }}) => Math.max(x + 5, Math.min(width - NODE_SIZE - 5, x)))
-    .attr('y2', ({ target: { y }}) => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, y)))
+    .attr('x1', ({ source: { x }}) => x)
+    .attr('y1', ({ source: { y }}) => y)
+    .attr('x2', ({ target: { x }}) => x)
+    .attr('y2', ({ target: { y }}) => y)
     .attr('stroke', ({ type }) => {
       return type === 'invisible' ? 'transparent' : 'red';
     });
     this.textElements
-    .attr('x', node => Math.max(NODE_SIZE + 5, Math.min(width - NODE_SIZE - 5, node.x)))
-    .attr('y', node => Math.max(NODE_SIZE + 5, Math.min(height - NODE_SIZE - NODE_SIZE / 2, node.y)));
+    .attr('x', node => node.x)
+    .attr('y', node => node.y);
     this.groupElements
     .attr('fill', data => {
       return 'blue';

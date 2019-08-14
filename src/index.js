@@ -2,6 +2,8 @@ import React, { Component, createRef } from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
 
+import './style.scss';
+
 function getNodeColor() {
   return 'green';
 }
@@ -196,14 +198,16 @@ class TopologyCanvas extends Component {
     .selectAll('rect')
     .data(this.overflowIndicators)
     .enter()
-    .append('rect');
+    .append('rect')
+    .attr('class', `${this.props.classNamePrefix}__overflow-text-container`);
 
     this.overflowIndicatorsText = this.svg
     .select('#overflow')
     .selectAll('text')
     .data(this.overflowIndicators)
     .enter()
-    .append('text');
+    .append('text')
+    .attr('class', `${this.props.classNamePrefix}__overflow-text`);
 
     this.simulation.force('link').links(this.edges);
   }
@@ -305,6 +309,7 @@ class TopologyCanvas extends Component {
 
   ticked = () => {
     const { width, height } = this.svgRef.current.getBoundingClientRect();
+    const { textIndicatorAttrs } = this.props;
     this.nodeElements
     .attr('cx', node => node.x)
     .attr('cy', node => node.y);
@@ -320,9 +325,7 @@ class TopologyCanvas extends Component {
     .attr('x', node => node.x)
     .attr('y', node => node.y);
     this.groupElements
-    .attr('fill', data => {
-      return 'blue';
-    })
+    .attr('fill', () => 'blue')
     .attr('opacity', 0.5)
     .attr('y', ({ nodes }) => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
     .attr('x', ({ nodes }) => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2)
@@ -335,20 +338,23 @@ class TopologyCanvas extends Component {
     .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
     .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
     this.overflowIndicatorsElements
-    .attr('opacity', '0.75')
-    .attr('fill', 'green')
+    .attr('rx', textIndicatorAttrs.rx * (1 / this.transform.k))
     .attr('x', ({ position }) => (this.calculateIndicatorX(position, width) - this.transform.x) * (1 / this.transform.k))
     .attr('y', ({ position }) => (this.calculateIndicatorY(position, height) - this.transform.y) * (1 / this.transform.k))
-    .attr('width', () => 20 * (1 / this.transform.k))
-    .attr('height', () => 20 * (1 / this.transform.k));
+    .attr('width', () => textIndicatorAttrs.width * (1 / this.transform.k))
+    .attr('height', () => textIndicatorAttrs.height * (1 / this.transform.k))
+    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
     this.overflowIndicatorsText
     .attr('font-size', 15 * (1 / this.transform.k))
-    .attr('x', ({ position }) => (this.calculateIndicatorX(position, width) - this.transform.x) * (1 / this.transform.k))
-    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height) + 15 - this.transform.y) * (1 / this.transform.k))
-    .text((data) => this.calculateBottomOverflow(data.position, data.nodes, height, width));
+    .attr('x', ({ position }) =>
+      (this.calculateIndicatorX(position, width) - this.transform.x + (textIndicatorAttrs.width / 2)) * (1 / this.transform.k))
+    .attr('y', ({ position }) =>
+      (this.calculateIndicatorY(position, height) + 15 - this.transform.y + (textIndicatorAttrs.height / 6)) * (1 / this.transform.k))
+    .text((data) => this.calculateOverflow(data.position, data.nodes, height, width))
+    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
   }
 
-  calculateBottomOverflow = (position, nodes, height, width) => ({
+  calculateOverflow = (position, nodes, height, width) => ({
     bottom: nodes.filter(({ y }) => (y * this.transform.k + this.transform.y) > height).length,
     top: nodes.filter(({ y }) => (y * this.transform.k + this.transform.y) < 0).length,
     right: nodes.filter(({ x }) => (x * this.transform.k + this.transform.x) > width).length,
@@ -358,19 +364,19 @@ class TopologyCanvas extends Component {
   calculateIndicatorX = (position, width) => ({
     top: width / 2,
     bottom: width / 2,
-    left: 0,
-    right: width - 20,
+    left: 15,
+    right: width - 65,
   })[position]
 
   calculateIndicatorY = (position, height) => ({
-    top: 0,
-    bottom: height - 20,
+    top: 10,
+    bottom: height - 40,
     left: height / 2,
     right: height / 2 - 40,
   })[position]
 
   render() {
-    return <svg style={{ width: '100%', height: '100%' }} ref={this.svgRef} id="svg" />;
+    return <svg className={this.props.className} ref={this.svgRef} id="svg" />;
   }
 }
 
@@ -381,12 +387,26 @@ TopologyCanvas.propTypes = {
   handleNodeClick: PropTypes.func.isRequired,
   healthState: PropTypes.bool,
   resetSelected: PropTypes.bool,
+  classNamePrefix: PropTypes.string,
+  className: PropTypes.string,
+  textIndicatorAttrs: {
+    width: PropTypes.number.isRequired,
+    height: PropTypes.number.isRequired,
+    rx: PropTypes.number.isRequired,
+  },
 };
 
 TopologyCanvas.defaultProps = {
   isFiltering: false,
   healthState: false,
   resetSelected: false,
+  className: 'topology-viewer',
+  classNamePrefix: 'topology-viewer',
+  textIndicatorAttrs: {
+    width: 50,
+    height: 30,
+    rx: 15,
+  },
 };
 
 export default TopologyCanvas;

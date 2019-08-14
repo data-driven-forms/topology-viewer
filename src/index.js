@@ -103,7 +103,8 @@ class TopologyCanvas extends Component {
     .append('line')
     .attr('stroke-width', 1)
     .attr('stroke', 'red')
-    .attr('id', ({ id }) => `link-${id}`);
+    .attr('id', ({ id }) => `link-${id}`)
+    .attr('class', ({ type = 'solid' }) => `${this.props.classNamePrefix}__edge-${type}`);
 
     this.linkElements = linkElements.merge(this.linkElements);
 
@@ -309,7 +310,7 @@ class TopologyCanvas extends Component {
     .force('charge', d3.forceManyBody().strength(-20).distanceMin(100).distanceMax(800))
     .force('x', forceX)
     .force('y',  forceY)
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2));
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 4));
     this.zoom = d3.zoom().scaleExtent([ .1, 4 ])
     .on('zoom', () => {
       this.transform = d3.event.transform;
@@ -322,10 +323,18 @@ class TopologyCanvas extends Component {
     this.simulation.force('link', d3.forceLink()
     .id(node => node.id)
     .distance(link => {
-      return link.source.group !== link.target.group ? 500 : 150;
+      if (link.source.group !== link.target.group) {
+        return 500;
+      }
+
+      if (link.source.level !== link.target.level) {
+        return 300;
+      }
+
+      return 180;
     })
     .strength((link) => {
-      return link.source.group !== link.target.group ? 1 : 0.25;
+      return link.source.group !== link.target.group ? 1 : 0.5;
     }));
 
     window.addEventListener('resize', () => {
@@ -357,7 +366,7 @@ class TopologyCanvas extends Component {
     .attr('x2', ({ target: { x }}) => x + NODE_SIZE)
     .attr('y2', ({ target: { y }}) => y + NODE_SIZE)
     .attr('stroke', ({ type }) => {
-      return type === 'invisible' ? 'transparent' : 'red';
+      return type === 'invisible' ? 'transparent' : 'inherit';
     });
     this.textElements
     .attr('x', node => node.x - node.width / 2 + NODE_SIZE)

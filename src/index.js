@@ -126,14 +126,31 @@ class TopologyCanvas extends Component {
 
     const textElements = this.svg
     .select('#labels')
-    .selectAll('text')
+    .selectAll('svg')
     .data(this.nodes)
-    .enter().append('text')
+    .enter().append('svg')
+    .attr('id', ({ id }) =>  `title-${id}`)
+    .attr('width', node => {
+      const temp = document.createElement('label');
+      temp.innerHTML = node.title;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      node.height = temp.getBoundingClientRect().height + 15;
+      document.getElementById('svg-container').removeChild(temp);
+      node.width = width + 10;
+      return width + 40;
+    })
+    .attr('class', `${this.props.classNamePrefix}__label-cotainer`);
+
+    textElements.append('rect')
+    .attr('width', ({ width }) => width)
+    .attr('class', `${this.props.classNamePrefix}__label-background`)
+    .attr('style', 'filter:url(#dropshadow)');
+    textElements.append('text')
     .text(node => node.title)
-    .attr('font-size', 15)
-    .attr('id', node => `title-${node.id}`)
-    .attr('dx',  - (NODE_SIZE / 2))
-    .attr('dy', NODE_SIZE + 15);
+    .attr('x', 5)
+    .attr('y', 17.5)
+    .attr('class', `${this.props.classNamePrefix}__label-text`);
 
     this.textElements = textElements.merge(this.textElements);
 
@@ -322,8 +339,9 @@ class TopologyCanvas extends Component {
       return type === 'invisible' ? 'transparent' : 'red';
     });
     this.textElements
-    .attr('x', node => node.x)
-    .attr('y', node => node.y);
+    .attr('x', node => node.x - node.width / 2)
+    .attr('y', node => node.y + NODE_SIZE + 5);
+
     this.groupElements
     .attr('fill', () => 'blue')
     .attr('opacity', 0.5)
@@ -376,7 +394,23 @@ class TopologyCanvas extends Component {
   })[position]
 
   render() {
-    return <svg className={this.props.className} ref={this.svgRef} id="svg" />;
+    return (
+      <div id="svg-container" className={this.props.className}>
+        <svg className={this.props.className} ref={this.svgRef} id="svg">
+          <filter id="dropshadow" height="130%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
+            <feOffset dx="2" dy="2" result="offsetblur"/>
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.5"/>
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </svg>
+      </div>
+    );
   }
 }
 
@@ -389,11 +423,11 @@ TopologyCanvas.propTypes = {
   resetSelected: PropTypes.bool,
   classNamePrefix: PropTypes.string,
   className: PropTypes.string,
-  textIndicatorAttrs: {
+  textIndicatorAttrs: PropTypes.shape({
     width: PropTypes.number.isRequired,
     height: PropTypes.number.isRequired,
     rx: PropTypes.number.isRequired,
-  },
+  }),
 };
 
 TopologyCanvas.defaultProps = {

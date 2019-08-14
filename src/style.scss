@@ -1,7 +1,6 @@
-svg.topology-viewer {
+.topology-viewer {
   width: 100%;
   height: 100%;
-  border: 1px solid red;
   font-family: 'Overpass', sans-serif;
   background-color: #ededed;
   .topology-viewer__overflow-text-container {
@@ -10,5 +9,14 @@ svg.topology-viewer {
   .topology-viewer__overflow-text {
     fill: #fff;
     text-anchor: middle;
+  }
+  .topology-viewer__label-background {
+    fill: #fff;
+    height: 26px;
+    rx: 5px;
+  }
+  .topology-viewer__label-text {
+    font-weight: 300;
+    font-size: 16px;
   }
 }

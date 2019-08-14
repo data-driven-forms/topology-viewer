@@ -109,11 +109,12 @@ class TopologyCanvas extends Component {
 
     const nodeElements = this.svg
     .select('#nodes')
-    .selectAll('circle')
+    .selectAll('svg')
     .data(this.nodes, ({ id }) => id)
-    .enter().append('circle')
-    .attr('r', NODE_SIZE)
-    .attr('fill', getNodeColor)
+    .enter()
+    .append('svg')
+    .attr('width', NODE_SIZE * 2 + 5)
+    .attr('height', NODE_SIZE * 2 + 5)
     .attr('id', node => node.id)
     .on('click', node => {
       node.fx = null;
@@ -121,6 +122,26 @@ class TopologyCanvas extends Component {
       return this.props.handleNodeClick(node);
     })
     .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded));
+
+    nodeElements.append('circle')
+    .attr('r', NODE_SIZE)
+    .attr('cx', NODE_SIZE)
+    .attr('cy', NODE_SIZE)
+    .attr('fill', 'white')
+    .attr('style', 'filter:url(#dropshadow)');
+
+    nodeElements.
+    append('svg')
+    .attr('width', NODE_SIZE * 2 - 10)
+    .attr('height', NODE_SIZE * 2 - 10)
+    .attr('x', 5)
+    .attr('y', 5)
+    .attr('viewBox', node => this.props.iconMapper[node.nodeType]
+      ? `0 -64 ${this.props.iconMapper[node.nodeType].width} ${this.props.iconMapper[node.nodeType].height}`
+      : '')
+    .append('path')
+    .attr('fill', '#151515')
+    .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
 
     this.nodeElements = nodeElements.merge(this.nodeElements);
 
@@ -328,19 +349,19 @@ class TopologyCanvas extends Component {
     const { width, height } = this.svgRef.current.getBoundingClientRect();
     const { textIndicatorAttrs } = this.props;
     this.nodeElements
-    .attr('cx', node => node.x)
-    .attr('cy', node => node.y);
+    .attr('x', node => node.x)
+    .attr('y', node => node.y);
     this.linkElements
-    .attr('x1', ({ source: { x }}) => x)
-    .attr('y1', ({ source: { y }}) => y)
-    .attr('x2', ({ target: { x }}) => x)
-    .attr('y2', ({ target: { y }}) => y)
+    .attr('x1', ({ source: { x }}) => x + NODE_SIZE)
+    .attr('y1', ({ source: { y }}) => y + NODE_SIZE)
+    .attr('x2', ({ target: { x }}) => x + NODE_SIZE)
+    .attr('y2', ({ target: { y }}) => y + NODE_SIZE)
     .attr('stroke', ({ type }) => {
       return type === 'invisible' ? 'transparent' : 'red';
     });
     this.textElements
-    .attr('x', node => node.x - node.width / 2)
-    .attr('y', node => node.y + NODE_SIZE + 5);
+    .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
+    .attr('y', node => node.y + NODE_SIZE + 5 + NODE_SIZE);
 
     this.groupElements
     .attr('fill', () => 'blue')
@@ -428,6 +449,7 @@ TopologyCanvas.propTypes = {
     height: PropTypes.number.isRequired,
     rx: PropTypes.number.isRequired,
   }),
+  iconMapper: PropTypes.object,
 };
 
 TopologyCanvas.defaultProps = {

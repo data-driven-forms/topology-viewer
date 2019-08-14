@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 import TopologyCanvas from '../src/';
+import Icons from '@patternfly/patternfly/icons/pf-icons.json';
 
 import { nodes as n, edges as e } from '../src/data';
 
@@ -22,8 +23,8 @@ class TopologyWrapper extends React.Component {
         add: !prevState.add,
         nodes: [
           ...prevState.nodes,
-          { id: 'child', title: 'Child to be removed', group: 1, level: 2 },
-          { id: 'child-2', group: 1, title: 'Child 2 to be removed', level: 2 },
+          { id: 'child', title: 'Child to be removed', group: 1, level: 2, nodeType: 'vm' },
+          { id: 'child-2', group: 1, title: 'Child 2 to be removed', level: 2, nodeType: 'vm' },
         ],
         edges: [ ...prevState.edges, { source: 0, target: 'child', id: '0-child' }, { source: 0, target: 'child-2', id: '0-child-2' }],
       }));
@@ -37,10 +38,16 @@ class TopologyWrapper extends React.Component {
   }
 
   render() {
+    const iconMapper = {
+      vm: Icons.memory,
+      source: Icons.info,
+      network: Icons.network,
+    };
     return (
       <div>
         <div style={{ borderRight: '1px solid #f1f1f1', height: 500 }}>
           <TopologyCanvas
+            iconMapper={iconMapper}
             nodes={this.state.nodes}
             edges={this.state.edges}
             handleNodeClick={this.invokeAddParent}

@@ -104,7 +104,6 @@ class TopologyCanvas extends Component {
     .enter()
     .append('line')
     .attr('stroke-width', 1)
-    .attr('stroke', 'red')
     .attr('id', ({ id }) => `link-${id}`)
     .attr('class', ({ type = 'solid' }) => `${this.props.classNamePrefix}__edge-${type}`);
 
@@ -135,10 +134,10 @@ class TopologyCanvas extends Component {
 
     nodeElements.
     append('svg')
-    .attr('width', NODE_SIZE * 2 - 10)
-    .attr('height', NODE_SIZE * 2 - 10)
-    .attr('x', 5)
-    .attr('y', 5)
+    .attr('width', NODE_SIZE)
+    .attr('height', NODE_SIZE)
+    .attr('x', NODE_SIZE / 2)
+    .attr('y', NODE_SIZE / 2)
     .attr('viewBox', node => this.props.iconMapper[node.nodeType]
       ? `0 -64 ${this.props.iconMapper[node.nodeType].width} ${this.props.iconMapper[node.nodeType].height}`
       : '')
@@ -218,8 +217,6 @@ class TopologyCanvas extends Component {
     .data(allLevels)
     .enter()
     .append('path')
-    .attr('fill', 'red')
-    .attr('stroke', 'green')
     .attr('stroke-width', nodes => levelStrokeWidth[Math.min(...nodes.map(({ level }) => level))]);
     this.levelElements = levelElements;
 

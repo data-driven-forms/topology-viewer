@@ -180,8 +180,7 @@ class TopologyCanvas extends Component {
 
     this.svg.select('#groups').selectAll('rect').remove();
     this.svg.select('#levels').selectAll('rect').remove();
-    this.svg.select('#overflow').selectAll('rect').remove();
-    this.svg.select('#overflow').selectAll('text').remove();
+    d3.select(this.svgRef.current).select('#overflow').selectAll('svg').remove();
     this.groups = {};
     this.simulation.nodes().forEach(node => {
       if (!this.groups[node.group]) {
@@ -232,20 +231,66 @@ class TopologyCanvas extends Component {
 
     this.overflowIndicators = this.overflowIndicators.map(indicator => ({ ...indicator, nodes: this.simulation.nodes() }));
 
-    this.overflowIndicatorsElements = this.svg
+    this.overflowIndicatorsElements = d3.select(this.svgRef.current)
     .select('#overflow')
-    .selectAll('rect')
+    .selectAll('svg')
     .data(this.overflowIndicators)
     .enter()
+    .append('svg')
+    .attr('width', this.props.textIndicatorAttrs.width + 20)
+    .attr('x', ({ position }) => this.calculateIndicatorX(position, width) - 10)
+    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height)) - 10);
+
+    const getBackdropHeight = position => ({
+      bottom: 60,
+      top: 60,
+      left: 50,
+      right: 50,
+    })[position];
+
+    const getBackdropWidth = position => ({
+      bottom: 70,
+      top: 70,
+      left: 100,
+      right: 100,
+    })[position];
+
+    const getBackdropX = position => ({
+      bottom: 0,
+      top: 0,
+      left: -30,
+      right: 0,
+    })[position];
+
+    const getBackdropY = position => ({
+      bottom: 0,
+      top: -10,
+      left: 0,
+      right: 0,
+    })[position];
+
+    this.overflowIndicatorsElements
     .append('rect')
+    .attr('width', () => this.props.textIndicatorAttrs.width + 20)
+    .attr('height', () => this.props.textIndicatorAttrs.height + 20)
+    .attr('height', ({ position }) => getBackdropHeight(position))
+    .attr('width', ({ position }) => getBackdropWidth(position))
+    .attr('x', ({ position }) => getBackdropX(position))
+    .attr('y', ({ position }) => getBackdropY(position))
+    .attr('class', `${this.props.classNamePrefix}__overflow-text-backdrop`);
+
+    this.overflowIndicatorsElements
+    .append('rect')
+    .attr('width', () => this.props.textIndicatorAttrs.width)
+    .attr('height', () => this.props.textIndicatorAttrs.height)
+    .attr('x', 10)
+    .attr('y', 10)
     .attr('class', `${this.props.classNamePrefix}__overflow-text-container`);
 
-    this.overflowIndicatorsText = this.svg
-    .select('#overflow')
-    .selectAll('text')
-    .data(this.overflowIndicators)
-    .enter()
+    this.overflowIndicatorsText = this.overflowIndicatorsElements
     .append('text')
+    .attr('x', 35)
+    .attr('y', 30)
     .attr('class', `${this.props.classNamePrefix}__overflow-text`);
 
     this.simulation.force('link').links(this.edges);
@@ -300,7 +345,7 @@ class TopologyCanvas extends Component {
     .attr('id', 'nodes');
     this.textElements = this.svg.append('g')
     .attr('id', 'labels');
-    this.overflowIndicatorsElements = this.svg.append('g')
+    this.overflowIndicatorsElements = d3.select(this.svgRef.current).append('g')
     .attr('id', 'overflow');
 
     /**
@@ -333,9 +378,7 @@ class TopologyCanvas extends Component {
 
       return 180;
     })
-    .strength((link) => {
-      return link.source.group !== link.target.group ? 1 : 0.5;
-    }));
+    .strength(link => link.source.group !== link.target.group ? 1 : 0.5));
 
     window.addEventListener('resize', () => {
       const { width, height } = this.svgRef.current.getBoundingClientRect();
@@ -356,7 +399,6 @@ class TopologyCanvas extends Component {
 
   ticked = () => {
     const { width, height } = this.svgRef.current.getBoundingClientRect();
-    const { textIndicatorAttrs } = this.props;
     this.nodeElements
     .attr('x', node => node.x)
     .attr('y', node => node.y);
@@ -386,18 +428,8 @@ class TopologyCanvas extends Component {
     .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
     .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
     this.overflowIndicatorsElements
-    .attr('rx', textIndicatorAttrs.rx * (1 / this.transform.k))
-    .attr('x', ({ position }) => (this.calculateIndicatorX(position, width) - this.transform.x) * (1 / this.transform.k))
-    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height) - this.transform.y) * (1 / this.transform.k))
-    .attr('width', () => textIndicatorAttrs.width * (1 / this.transform.k))
-    .attr('height', () => textIndicatorAttrs.height * (1 / this.transform.k))
     .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
     this.overflowIndicatorsText
-    .attr('font-size', 15 * (1 / this.transform.k))
-    .attr('x', ({ position }) =>
-      (this.calculateIndicatorX(position, width) - this.transform.x + (textIndicatorAttrs.width / 2)) * (1 / this.transform.k))
-    .attr('y', ({ position }) =>
-      (this.calculateIndicatorY(position, height) + 15 - this.transform.y + (textIndicatorAttrs.height / 6)) * (1 / this.transform.k))
     .text((data) => this.calculateOverflow(data.position, data.nodes, height, width))
     .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
   }
@@ -412,8 +444,8 @@ class TopologyCanvas extends Component {
   calculateIndicatorX = (position, width) => ({
     top: width / 2,
     bottom: width / 2,
-    left: 15,
-    right: width - 65,
+    left: 10,
+    right: width - 60,
   })[position]
 
   calculateIndicatorY = (position, height) => ({

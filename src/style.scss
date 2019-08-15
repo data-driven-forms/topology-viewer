@@ -4,11 +4,13 @@
   font-family: 'Overpass', sans-serif;
   background-color: #ededed;
   .topology-viewer__overflow-text-container {
-    fill: #151515
+    fill: #151515;
+    rx: 15;
   }
   .topology-viewer__overflow-text {
     fill: #fff;
     text-anchor: middle;
+    font-size: 14px;
   }
   .topology-viewer__label-background {
     fill: #fff;
@@ -21,5 +23,10 @@
   }
   .topology-viewer__edge-solid {
     stroke: #d2d2d2
+  }
+  .topology-viewer__overflow-text-backdrop {
+    opacity: 0.7;
+    fill: #d2d2d2;
+    rx: 15;
   }
 }

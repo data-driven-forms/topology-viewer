@@ -16,10 +16,16 @@
     fill: #fff;
     height: 26px;
     rx: 5px;
+    &.selected {
+      fill: #0066CC
+    }
   }
   .topology-viewer__label-text {
     font-weight: 300;
     font-size: 16px;
+    &.selected {
+      fill: white
+    }
   }
   .topology-viewer__edge-solid {
     stroke: #8B8D8F
@@ -28,5 +34,16 @@
     opacity: 0.7;
     fill: #d2d2d2;
     rx: 15;
+  }
+  .topology-viewer__node {
+    fill: white;
+    cursor: pointer;
+  }
+  .topology-viewer__node-border {
+    fill: white;
+    &.selected {
+      stroke: #0066CC;
+      stroke-width: 4.4;
+    }
   }
 }

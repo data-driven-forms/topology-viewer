@@ -2,42 +2,41 @@ const webpack = require('webpack');
 const path = require('path');
 const merge = require('webpack-merge');
 
-
 const commonConfig = {
   module: {
     rules: [
       {
         test: /\.(js|jsx)$/,
         use: 'babel-loader',
-        exclude: /node_modules/
+        exclude: /node_modules/,
       },
       {
         test: /\.css$/,
         use: [
           'style-loader',
-          'css-loader'
-        ]
+          'css-loader',
+        ],
       },
       {
         test: /\.scss$/,
         use: [
           'style-loader',
           'css-loader',
-          'sass-loader'
-        ]
-      }
-    ]
+          'sass-loader',
+        ],
+      },
+    ],
   },
   resolve: {
     extensions: [
       '.js',
-      '.jsx'
-    ]
+      '.jsx',
+    ],
   },
   devServer: {
-    contentBase: './dist'
-  }
-}
+    contentBase: './dist',
+  },
+};
 
 const prodConfig = {
   entry: './src/index.js',
@@ -48,16 +47,16 @@ const prodConfig = {
     libraryTarget: 'umd',
     filename: 'index.js',
   },
-}
+};
 
 const devConfig = {
   entry: './demo/index.js',
   mode: 'development',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js'
+    filename: 'bundle.js',
   },
-}
+};
 
 module.exports = env => ({
   dev: merge(commonConfig, devConfig),

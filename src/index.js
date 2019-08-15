@@ -24,6 +24,7 @@ class TopologyCanvas extends Component {
     this.linkElements = [];
     this.groups = {};
     this.levelElements = [];
+    this.selectedNode = undefined;
     this.overflowIndicators = [
       { position: 'top', nodes: []},
       { position: 'left', nodes: []},
@@ -109,6 +110,24 @@ class TopologyCanvas extends Component {
 
     this.linkElements = linkElements.merge(this.linkElements);
 
+    const nodeClick = node => {
+      node.fx = null;
+      node.xy = null;
+      if (this.selectedNode && this.selectedNode.id === node.id) {
+        node.selected = false;
+      } else {
+        if (this.selectedNode) {
+          this.selectedNode.selected = false;
+        }
+
+        this.selectedNode = node;
+        node.selected = true;
+      }
+
+      d3.event.stopPropagation();
+      return this.props.handleNodeClick(node);
+    };
+
     const nodeElements = this.svg
     .select('#nodes')
     .selectAll('svg')
@@ -118,22 +137,28 @@ class TopologyCanvas extends Component {
     .attr('width', NODE_SIZE * 2 + 5)
     .attr('height', NODE_SIZE * 2 + 5)
     .attr('id', node => node.id)
-    .on('click', node => {
-      node.fx = null;
-      node.xy = null;
-      return this.props.handleNodeClick(node);
-    })
+    .on('click', nodeClick)
     .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded));
 
     nodeElements.append('circle')
+    .attr('class', `${this.props.classNamePrefix}__node`)
     .attr('r', NODE_SIZE)
     .attr('cx', NODE_SIZE)
     .attr('cy', NODE_SIZE)
-    .attr('fill', 'white')
+    .on('click', nodeClick)
     .attr('style', 'filter:url(#dropshadow)');
+
+    nodeElements.append('circle')
+    .attr('class', `${this.props.classNamePrefix}__node-border`)
+    .attr('r', NODE_SIZE - 2)
+    .attr('cx', NODE_SIZE)
+    .attr('cy', NODE_SIZE)
+    .on('click', nodeClick)
+    .attr('fill', 'red');
 
     nodeElements.
     append('svg')
+    .on('click', nodeClick)
     .attr('width', NODE_SIZE)
     .attr('height', NODE_SIZE)
     .attr('x', NODE_SIZE / 2)
@@ -143,6 +168,7 @@ class TopologyCanvas extends Component {
       : '')
     .append('path')
     .attr('fill', '#151515')
+    .on('click', nodeClick)
     .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
 
     this.nodeElements = nodeElements.merge(this.nodeElements);
@@ -396,6 +422,8 @@ class TopologyCanvas extends Component {
     this.nodeElements
     .attr('x', node => node.x)
     .attr('y', node => node.y);
+    this.nodeElements.selectAll(`circle.${this.props.classNamePrefix}__node-border`)
+    .attr('class', ({ selected }) => selected ? `${this.props.classNamePrefix}__node-border selected` : `${this.props.classNamePrefix}__node-border`);
     this.linkElements
     .attr('x1', ({ source: { x }}) => x + NODE_SIZE)
     .attr('y1', ({ source: { y }}) => y + NODE_SIZE)
@@ -407,6 +435,14 @@ class TopologyCanvas extends Component {
     this.textElements
     .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
     .attr('y', node => node.y + NODE_SIZE + 5 + NODE_SIZE);
+    this.textElements.selectAll(`text.${this.props.classNamePrefix}__label-text`)
+    .attr('class', ({ selected }) => selected
+      ? `${this.props.classNamePrefix}__label-text  selected`
+      : `${this.props.classNamePrefix}__label-text `);
+    this.textElements.selectAll(`rect.${this.props.classNamePrefix}__label-background`)
+    .attr('class', ({ selected }) => selected
+      ? `${this.props.classNamePrefix}__label-background  selected`
+      : `${this.props.classNamePrefix}__label-background `);
 
     this.levelElements
     .attr('opacity', 1)

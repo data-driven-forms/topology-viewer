@@ -45,7 +45,7 @@ class TopologyWrapper extends React.Component {
     };
     return (
       <div>
-        <div style={{ borderRight: '1px solid #f1f1f1', height: 500 }}>
+        <div style={{ borderRight: '1px solid #f1f1f1', height: 'calc(100vh - 16px)' }}>
           <TopologyCanvas
             iconMapper={iconMapper}
             nodes={this.state.nodes}

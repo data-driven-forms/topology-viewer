@@ -10,6 +10,9 @@ function getNodeColor() {
 
 const NODE_SIZE = 25;
 
+const levelColors = [ '#FFF', '#ededed', '#d2d2d2', '#d2d2d2' ];
+const levelStrokeWidth = [ NODE_SIZE * 5.5, NODE_SIZE * 4, NODE_SIZE * 3 ];
+
 class TopologyCanvas extends Component {
   constructor(props) {
     super(props);
@@ -19,7 +22,6 @@ class TopologyCanvas extends Component {
     this.textElements = [];
     this.nodeElements = [];
     this.linkElements = [];
-    this.groupElements = [];
     this.groups = {};
     this.levelElements = [];
     this.overflowIndicators = [
@@ -179,7 +181,7 @@ class TopologyCanvas extends Component {
     this.simulation.nodes(this.nodes).on('tick', this.ticked);
 
     this.svg.select('#groups').selectAll('rect').remove();
-    this.svg.select('#levels').selectAll('rect').remove();
+    this.svg.select('#levels').selectAll('path').remove();
     d3.select(this.svgRef.current).select('#overflow').selectAll('svg').remove();
     this.groups = {};
     this.simulation.nodes().forEach(node => {
@@ -205,16 +207,6 @@ class TopologyCanvas extends Component {
       this.groups[key].levels = levels;
     });
 
-    const groupElements = this.svg
-    .select('#groups')
-    .selectAll('rect')
-    .data(Object.values(this.groups))
-    .enter()
-    .append('rect')
-    .attr('fill', 'blue');
-
-    this.groupElements = groupElements;
-
     const allLevels = Object.values(this.groups)
     .filter(({ levels }) => levels && Object.keys(levels).length > 0)
     .map(({ levels }) => Object.values(levels)).flat();
@@ -225,8 +217,10 @@ class TopologyCanvas extends Component {
     .append('g')
     .data(allLevels)
     .enter()
-    .append('rect')
-    .attr('fill', 'red');
+    .append('path')
+    .attr('fill', 'red')
+    .attr('stroke', 'green')
+    .attr('stroke-width', nodes => levelStrokeWidth[Math.min(...nodes.map(({ level }) => level))]);
     this.levelElements = levelElements;
 
     this.overflowIndicators = this.overflowIndicators.map(indicator => ({ ...indicator, nodes: this.simulation.nodes() }));
@@ -335,8 +329,6 @@ class TopologyCanvas extends Component {
     const forceX = d3.forceX(width / 2).strength(0.21);
     const forceY = d3.forceY(height / 2).strength(0.21);
 
-    this.groupElemens = this.svg.append('g')
-    .attr('id', 'groups');
     this.levelGroup = this.svg.append('g')
     .attr('id', 'levels');
     this.linkElements = this.svg.append('g')
@@ -362,6 +354,11 @@ class TopologyCanvas extends Component {
       this.simulation.on('tick')();
       this.svg.attr('transform', d3.event.transform);
     });
+
+    this.valueLine = d3.line()
+    .x(d => d[0] + NODE_SIZE)
+    .y(d => d[1])
+    .curve(d3.curveCatmullRomClosed);
 
     d3.select(this.svgRef.current).call(this.zoom);
 
@@ -414,25 +411,34 @@ class TopologyCanvas extends Component {
     .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
     .attr('y', node => node.y + NODE_SIZE + 5 + NODE_SIZE);
 
-    this.groupElements
-    .attr('fill', () => 'blue')
-    .attr('opacity', 0.5)
-    .attr('y', ({ nodes }) => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
-    .attr('x', ({ nodes }) => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2)
-    .attr('width', ({ nodes }) => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
-    .attr('height', ({ nodes }) => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
     this.levelElements
-    .attr('opacity', 0.25)
+    .attr('opacity', 1)
+    .attr('stroke', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
+    .attr('fill', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
+    .attr('d', nodes => {
+      let data = nodes;
+      if (nodes.length < 3) {
+        data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE, y: y + NODE_SIZE })) ];
+      }
+
+      const polygon = this.polygonGenerator(data);
+      const hull = d3.polygonHull(polygon);
+      return this.valueLine(hull.map(([ x, y ]) => {
+        return [ x, y ];
+      }));
+    })
     .attr('y', nodes => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
-    .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2)
-    .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
-    .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
+    .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2);
+    // .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
+    // .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
     this.overflowIndicatorsElements
     .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
     this.overflowIndicatorsText
     .text((data) => this.calculateOverflow(data.position, data.nodes, height, width))
     .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
   }
+
+  polygonGenerator = nodes => nodes.map(({ x, y }) => [ x, y + NODE_SIZE ])
 
   calculateOverflow = (position, nodes, height, width) => ({
     bottom: nodes.filter(({ y }) => (y * this.transform.k + this.transform.y) > height).length,

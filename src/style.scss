@@ -47,7 +47,7 @@ $overflow-backdrop-color: #d2d2d2;
   .topology-viewer__edge {
     stroke: $edge-color;
     &.animated {
-      animation: dash-animation 10s infinite linear;
+      animation: dash-animation 35s infinite linear;
     }
     &.danger {
       stroke: $danger-color;
@@ -72,14 +72,20 @@ $overflow-backdrop-color: #d2d2d2;
   }
   .topology-viewer__node {
     fill: $white-color;
+    stroke: $white-color;
+    stroke-width: 4.4;
     cursor: pointer;
   }
   .topology-viewer__node-border {
     fill: $white-color;
+    cursor: pointer;
     &.selected {
       stroke: $selected-color;
-      stroke-width: 4.4;
+      stroke-width: 4.7;
     }
+  }
+  .topology-viewer__node-icon {
+    cursor: pointer;
   }
   .topology-viewer__line-arrow-normal {
     fill: $edge-color;

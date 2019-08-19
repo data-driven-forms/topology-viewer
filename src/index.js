@@ -1,17 +1,31 @@
 import React, { Component, createRef } from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
-
+import roundedPolygon from './roundedPolygon';
 import './style.scss';
-
-function getNodeColor() {
-  return 'green';
-}
 
 const NODE_SIZE = 25;
 
 const levelColors = [ '#FFF', '#ededed', '#d2d2d2', '#d2d2d2' ];
 const levelStrokeWidth = [ NODE_SIZE * 5.5, NODE_SIZE * 4, NODE_SIZE * 3 ];
+
+const circlePath = (cx, cy, r) => `M ${cx},${cy}
+m ${-r}, 0
+a ${r},${r} 0 1,0 ${r * 2}, 0
+a ${r},${r} 0 1,0 -${r * 2}, 0`;
+
+const squarePath = (edgeSize, cornerCurve = 5) =>`M${cornerCurve + 2},2
+h${edgeSize - cornerCurve * 2}
+a${cornerCurve},${cornerCurve} 0 0 1 ${cornerCurve},${cornerCurve}
+v${edgeSize - cornerCurve * 2}
+a${cornerCurve},${cornerCurve} 0 0 1 -${cornerCurve},${cornerCurve}
+h-${edgeSize - cornerCurve * 2}
+a${cornerCurve},${cornerCurve} 0 0 1 -${cornerCurve},-${cornerCurve}
+v-${edgeSize - cornerCurve * 2}
+a${cornerCurve},${cornerCurve} 0 0 1 ${cornerCurve},-${cornerCurve} z
+`;
+
+const hexagonPath = (edgeSize, cornerCurve = 5) => roundedPolygon(edgeSize, cornerCurve).path;
 
 class TopologyCanvas extends Component {
   constructor(props) {
@@ -135,27 +149,41 @@ class TopologyCanvas extends Component {
     .data(this.nodes, ({ id }) => id)
     .enter()
     .append('svg')
-    .attr('width', NODE_SIZE * 2 + 5)
-    .attr('height', NODE_SIZE * 2 + 5)
+    .attr('height', NODE_SIZE * 2 + 10)
     .attr('id', node => node.id)
     .on('click', nodeClick)
+    .attr('style', 'filter:url(#dropshadow)')
     .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded));
 
-    nodeElements.append('circle')
+    nodeElements.append('path')
     .attr('class', `${this.props.classNamePrefix}__node`)
-    .attr('r', NODE_SIZE)
-    .attr('cx', NODE_SIZE)
-    .attr('cy', NODE_SIZE)
-    .on('click', nodeClick)
-    .attr('style', 'filter:url(#dropshadow)');
+    .attr('d', ({ nodeShape }) => {
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE - 2) * 2, 5);
+      }
 
-    nodeElements.append('circle')
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE - 2);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE - 2);
+    })
+    .on('click', nodeClick);
+
+    nodeElements.append('path')
     .attr('class', `${this.props.classNamePrefix}__node-border`)
-    .attr('r', NODE_SIZE - 2)
-    .attr('cx', NODE_SIZE)
-    .attr('cy', NODE_SIZE)
-    .on('click', nodeClick)
-    .attr('fill', 'red');
+    .attr('d', ({ nodeShape }) => {
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE - 2) * 2, 5);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE - 2);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE - 2);
+    })
+    .on('click', nodeClick);
 
     nodeElements.
     append('svg')
@@ -170,6 +198,7 @@ class TopologyCanvas extends Component {
     .append('path')
     .attr('fill', '#151515')
     .on('click', nodeClick)
+    .attr('class', `${this.props.classNamePrefix}__node-icon`)
     .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
 
     this.nodeElements = nodeElements.merge(this.nodeElements);
@@ -457,7 +486,7 @@ class TopologyCanvas extends Component {
     this.nodeElements
     .attr('x', node => node.x)
     .attr('y', node => node.y);
-    this.nodeElements.selectAll(`circle.${this.props.classNamePrefix}__node-border`)
+    this.nodeElements.selectAll(`path.${this.props.classNamePrefix}__node-border`)
     .attr('class', ({ selected }) => selected ? `${this.props.classNamePrefix}__node-border selected` : `${this.props.classNamePrefix}__node-border`);
     this.linkElements
     .attr('x1', ({ source: { x }}) => x + NODE_SIZE)
@@ -543,7 +572,7 @@ class TopologyCanvas extends Component {
               className={`${this.props.classNamePrefix}__line-arrow-normal`}
               markerWidth={NODE_SIZE}
               markerHeight={NODE_SIZE}
-              refX={NODE_SIZE}
+              refX={NODE_SIZE + 1}
               refY="3"
               orient="auto"
               viewBox="0 0 20 20"
@@ -555,7 +584,7 @@ class TopologyCanvas extends Component {
               id={`${this.props.arrowMarkerId}-success`}
               className={`${this.props.classNamePrefix}__line-arrow-success`}
               markerWidth={NODE_SIZE}
-              markerHeight={NODE_SIZE}
+              markerHeight={NODE_SIZE + 1}
               refX={NODE_SIZE}
               refY="3"
               orient="auto"
@@ -568,7 +597,7 @@ class TopologyCanvas extends Component {
               id={`${this.props.arrowMarkerId}-warning`}
               className={`${this.props.classNamePrefix}__line-arrow-warning`}
               markerWidth={NODE_SIZE}
-              markerHeight={NODE_SIZE}
+              markerHeight={NODE_SIZE + 1}
               refX={NODE_SIZE}
               refY="3"
               orient="auto"
@@ -591,7 +620,7 @@ class TopologyCanvas extends Component {
               <path d="M0,0 L0,6 L6,3 z"/>
             </marker>
           </defs>
-          <filter id="dropshadow" height="130%">
+          <filter id="dropshadow" height="130%" width="130%">
             <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
             <feOffset dx="2" dy="2" result="offsetblur"/>
             <feComponentTransfer>

@@ -5,6 +5,7 @@ export const nodes = [
     group: 1,
     level: 0,
     nodeType: 'source',
+    nodeShape: 'circle',
   },
   {
     id: 4,
@@ -33,6 +34,7 @@ export const nodes = [
     group: 1,
     level: 1,
     nodeType: 'network',
+    nodeShape: 'square',
   },
   {
     id: 2,
@@ -40,6 +42,7 @@ export const nodes = [
     group: 1,
     level: 1,
     nodeType: 'vm',
+    nodeShape: 'hexagon',
   }, {
     id: 11,
     title: 'Group 2 node 1',
@@ -106,6 +109,7 @@ export const edges = [
   {
     source: 0,
     target: 2,
+    directional: true,
     id: '0-2',
   },
   {

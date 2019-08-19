@@ -1,46 +1,65 @@
+$white-color: #fff;
+$fill-dark-color: #151515;
+$danger-color: #c9190b;
+$warning-color: #f0ab00;
+$success-color: #92d400;
+$background-color: #ededed;
+$selected-color: #0066CC;
+$edge-color: #8B8D8F;
+$overflow-backdrop-color: #d2d2d2;
+
+@keyframes dash-animation {
+  to {
+        stroke-dashoffset: -1000;
+  }
+ }
+
 .topology-viewer {
   width: 100%;
   height: 100%;
   font-family: 'Overpass', sans-serif;
-  background-color: #ededed;
+  background-color: $background-color;
   .topology-viewer__overflow-text-container {
-    fill: #151515;
+    fill: $fill-dark-color;
     rx: 15;
   }
   .topology-viewer__overflow-text {
-    fill: #fff;
+    fill: $white-color;
     text-anchor: middle;
     font-size: 14px;
   }
   .topology-viewer__label-background {
-    fill: #fff;
+    fill: $white-color;
     height: 26px;
     rx: 5px;
     opacity: 0.95;
     &.selected {
-      fill: #0066CC
+      fill: $selected-color
     }
   }
   .topology-viewer__label-text {
     font-weight: 300;
     font-size: 16px;
     &.selected {
-      fill: white
+      fill: $white-color
     }
   }
   .topology-viewer__edge {
-    stroke: #8B8D8F;
+    stroke: $edge-color;
+    &.animated {
+      animation: dash-animation 10s infinite linear;
+    }
     &.danger {
-      stroke: #c9190b;
+      stroke: $danger-color;
     }
     &.warning {
-      stroke: #f0ab00;
+      stroke: $warning-color;
     }
     &.success {
-      stroke: #92d400;
+      stroke: $success-color;
     }
     &.dashed {
-      stroke-dasharray: 10
+      stroke-dasharray: 10;
     }
     &.points {
       stroke-dasharray: 2, 5
@@ -48,30 +67,53 @@
   }
   .topology-viewer__overflow-text-backdrop {
     opacity: 0.7;
-    fill: #d2d2d2;
+    fill: $overflow-backdrop-color;
     rx: 15;
   }
   .topology-viewer__node {
-    fill: white;
+    fill: $white-color;
     cursor: pointer;
   }
   .topology-viewer__node-border {
-    fill: white;
+    fill: $white-color;
     &.selected {
-      stroke: #0066CC;
+      stroke: $selected-color;
       stroke-width: 4.4;
     }
   }
   .topology-viewer__line-arrow-normal {
-    fill: #8B8D8F;
+    fill: $edge-color;
   }
   .topology-viewer__line-arrow-success {
-    fill: #92d400;
+    fill: $success-color;
   }
   .topology-viewer__line-arrow-warning {
-    fill: #f0ab00;
+    fill: $warning-color;
   }
   .topology-viewer__line-arrow-danger {
-    fill: #c9190b;
+    fill: $danger-color;
+  }
+  .topology-viewer__edge-label-background {
+    fill: $white-color;
+    rx: 5px;
+    &.success {
+      fill: $success-color
+    }
+    &.warning {
+      fill: $warning-color
+    }
+    &.danger {
+      fill: $danger-color
+    }
+  }
+  .topology-viewer__edge-label-text {
+    fill: $fill-dark-color;
+    font-size: 12px;
+    &.success {
+      fill: $white-color
+    }
+    &.danger {
+      fill: $white-color
+    }
   }
 }

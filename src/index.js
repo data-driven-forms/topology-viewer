@@ -24,6 +24,7 @@ class TopologyCanvas extends Component {
     this.linkElements = [];
     this.groups = {};
     this.levelElements = [];
+    this.linkLabelsElements = [];
     this.selectedNode = undefined;
     this.overflowIndicators = [
       { position: 'top', nodes: []},
@@ -207,6 +208,7 @@ class TopologyCanvas extends Component {
 
     this.svg.select('#groups').selectAll('rect').remove();
     this.svg.select('#levels').selectAll('path').remove();
+    this.svg.select('#edge-labels').selectAll('svg').remove();
     d3.select(this.svgRef.current).select('#overflow').selectAll('svg').remove();
     this.groups = {};
     this.simulation.nodes().forEach(node => {
@@ -310,6 +312,37 @@ class TopologyCanvas extends Component {
     .attr('y', 30)
     .attr('class', `${this.props.classNamePrefix}__overflow-text`);
 
+    this.linkLabelsElements = this.svg.select('#edge-labels')
+    .selectAll('svg')
+    .data(this.edges.filter(({ type, label }) => type !== 'invisible' && label !== undefined))
+    .enter()
+    .append('svg')
+    .attr('width', edge => {
+      const temp = document.createElement('label');
+      temp.innerHTML = edge.label;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      edge.height = temp.getBoundingClientRect().height + 5;
+      document.getElementById('svg-container').removeChild(temp);
+      edge.width = width;
+      return width + 40;
+    })
+    .attr('class', `${this.props.classNamePrefix}__edge-label-cotainer`);
+
+    this.linkLabelsElements
+    .append('rect')
+    .attr('width', ({ width }) => width)
+    .attr('height', ({ height }) => height)
+    .attr('style', 'filter:url(#dropshadow)')
+    .attr('class', ({ status }) =>  `${this.props.classNamePrefix}__edge-label-background ${status || ''}`);
+
+    this.linkLabelsElements
+    .append('text')
+    .text(({ label }) => label)
+    .attr('x', 6)
+    .attr('y', 15.5)
+    .attr('class', ({ status }) => `${this.props.classNamePrefix}__edge-label-text ${status || ''}`);
+
     this.simulation.force('link').links(this.edges);
   }
 
@@ -356,6 +389,8 @@ class TopologyCanvas extends Component {
     .attr('id', 'levels');
     this.linkElements = this.svg.append('g')
     .attr('id', 'edges');
+    this.linkLabelsElements = this.svg.append('g')
+    .attr('id', 'edge-labels');
     this.nodeElements = this.svg.append('g')
     .attr('id', 'nodes');
     this.textElements = this.svg.append('g')
@@ -429,11 +464,15 @@ class TopologyCanvas extends Component {
     .attr('y1', ({ source: { y }}) => y + NODE_SIZE)
     .attr('x2', ({ target: { x }}) => x + NODE_SIZE)
     .attr('y2', ({ target: { y }}) => y + NODE_SIZE)
-    .attr('class', ({ type, status }) => type === 'invisible' ? '' : `topology-viewer__edge ${ type || 'solid'} ${status || ''}`)
+    .attr('class', ({ type, status, animated }) => type === 'invisible'
+      ? '' : `topology-viewer__edge ${ type || 'solid'} ${status || ''} ${animated ? 'animated' : ''}`)
     .attr('marker-end', ({ directional, status }) => directional ? `url(#${this.props.arrowMarkerId}-${status || 'normal'})` : '')
     .attr('stroke', ({ type }) => {
       return type === 'invisible' ? 'transparent' : 'inherit';
     });
+    this.linkLabelsElements
+    .attr('x', ({ source, target }) => (source.x + target.x) / 2)
+    .attr('y', ({ source, target }) => (source.y + target.y) / 2 + NODE_SIZE / 2);
     this.textElements
     .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
     .attr('y', node => node.y + NODE_SIZE + 8 + NODE_SIZE);

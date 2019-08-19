@@ -63,6 +63,7 @@ export const edges = [
     target: 11,
     id: '1-11',
     type: 'dashed',
+    label: '350 kbs',
   },
   {
     source: 11,
@@ -82,6 +83,7 @@ export const edges = [
     id: '1-4',
     directional: true,
     status: 'warning',
+    label: '350 kbs',
   },
   {
     source: 2,
@@ -90,6 +92,8 @@ export const edges = [
     directional: true,
     type: 'dashed',
     status: 'success',
+    label: '350 kbs',
+    animated: true,
   },
   {
     source: 0,
@@ -97,6 +101,7 @@ export const edges = [
     id: '0-1',
     status: 'danger',
     directional: true,
+    label: '350 kbs',
   },
   {
     source: 0,

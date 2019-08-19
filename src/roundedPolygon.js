@@ -1,4 +1,4 @@
-const roundedPolygon = (L, R) => {
+const roundedPolygon = (L, R, offsetX = 0) => {
   const padding = 0;
   const N = 6;
   const half = (N - 2) * Math.PI / N / 2; // Half angle of corner
@@ -77,7 +77,7 @@ const roundedPolygon = (L, R) => {
     let x = fixFloat(p[0]);
     let y = fixFloat(p[1]);
     if (index === 0) {
-      return `M${x + 2} ${2 + y}`;
+      return `M${x + 2 + offsetX} ${2 + y}`;
     } else if (index % 2) {
       return `a${R} ${R} 0 0 1 ${x} ${y}`;
     } else {

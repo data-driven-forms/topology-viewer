@@ -9,12 +9,12 @@ const NODE_SIZE = 25;
 const levelColors = [ '#FFF', '#f5f5f5', '#d2d2d2', '#d2d2d2' ];
 const levelStrokeWidth = [ NODE_SIZE * 5.5, NODE_SIZE * 4, NODE_SIZE * 3 ];
 
-const circlePath = (cx, cy, r) => `M ${cx},${cy}
+const circlePath = (cx, cy, r, offset = 0) => `M ${cx + offset},${cy}
 m ${-r}, 0
 a ${r},${r} 0 1,0 ${r * 2}, 0
 a ${r},${r} 0 1,0 -${r * 2}, 0`;
 
-const squarePath = (edgeSize, cornerCurve = 5) =>`M${cornerCurve + 2},2
+const squarePath = (edgeSize, cornerCurve = 5, offset = 0) =>`M${cornerCurve + 2 + offset},2
 h${edgeSize - cornerCurve * 2}
 a${cornerCurve},${cornerCurve} 0 0 1 ${cornerCurve},${cornerCurve}
 v${edgeSize - cornerCurve * 2}
@@ -25,7 +25,7 @@ v-${edgeSize - cornerCurve * 2}
 a${cornerCurve},${cornerCurve} 0 0 1 ${cornerCurve},-${cornerCurve} z
 `;
 
-const hexagonPath = (edgeSize, cornerCurve = 5) => roundedPolygon(edgeSize, cornerCurve).path;
+const hexagonPath = (edgeSize, cornerCurve = 5, offsetX) => roundedPolygon(edgeSize, cornerCurve, offsetX).path;
 
 class TopologyCanvas extends Component {
   constructor(props) {
@@ -149,14 +149,54 @@ class TopologyCanvas extends Component {
     .data(this.nodes, ({ id }) => id)
     .enter()
     .append('svg')
-    .attr('height', NODE_SIZE * 2 + 10)
     .attr('id', node => node.id)
     .on('click', nodeClick)
     .attr('style', 'filter:url(#dropshadow)')
     .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded));
+    /**
+     * only for frouped elements
+     */
+    nodeElements.append('path')
+    .attr('class', `${this.props.classNamePrefix}__node-group layer-2`)
+    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial')
+    .attr('d', ({ nodeShape, children }) => {
+      if (children === undefined) {
+        return '';
+      }
+
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE) * 2, 5, 10);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE, 5, 11);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE, 12);
+    })
+    .on('click', nodeClick);
+    nodeElements.append('path')
+    .attr('class', `${this.props.classNamePrefix}__node-group layer-1`)
+    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial')
+    .attr('d', ({ nodeShape, children }) => {
+      if (children === undefined) {
+        return '';
+      }
+
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE) * 2, 5, 5);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE, 5, 5);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE, 6);
+    })
+    .on('click', nodeClick);
 
     nodeElements.append('path')
-    .attr('class', `${this.props.classNamePrefix}__node`)
+    .attr('class', ({ children }) => `${this.props.classNamePrefix}__node ${children ? 'grouped' : ''}`)
     .attr('d', ({ nodeShape }) => {
       if (nodeShape === 'square') {
         return squarePath((NODE_SIZE - 2) * 2, 5);
@@ -200,6 +240,33 @@ class TopologyCanvas extends Component {
     .on('click', nodeClick)
     .attr('class', `${this.props.classNamePrefix}__node-icon`)
     .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
+
+    const childrenChip = nodeElements
+    .append('svg')
+    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial');
+
+    childrenChip
+    .append('rect')
+    .attr('width', node => {
+      const temp = document.createElement('label');
+      temp.innerHTML = node.children;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      document.getElementById('svg-container').removeChild(temp);
+      node.width = width;
+      return width + 10;
+    })
+    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip`);
+
+    childrenChip
+    .append('svg')
+    .attr('x', 45)
+    .attr('y', 30)
+    .attr('overflow', 'visible')
+    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip-text-cotainer`)
+    .append('text')
+    .text(node => node.children || '')
+    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip-text`);
 
     this.nodeElements = nodeElements.merge(this.nodeElements);
 
@@ -624,18 +691,18 @@ class TopologyCanvas extends Component {
             >
               <path d="M0,0 L0,6 L6,3 z"/>
             </marker>
+            <filter id="dropshadow" height="130%" width="130%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
+              <feOffset dx="2" dy="2" result="offsetblur"/>
+              <feComponentTransfer>
+                <feFuncA type="linear" slope="0.5"/>
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
           </defs>
-          <filter id="dropshadow" height="130%" width="130%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
-            <feOffset dx="2" dy="2" result="offsetblur"/>
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.5"/>
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
         </svg>
       </div>
     );

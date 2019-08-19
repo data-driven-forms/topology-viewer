@@ -5,7 +5,8 @@ export const nodes = [
     group: 1,
     level: 0,
     nodeType: 'source',
-    nodeShape: 'circle',
+    nodeShape: 'hexagon',
+    children: 6666,
   },
   {
     id: 4,
@@ -13,6 +14,8 @@ export const nodes = [
     group: 1,
     level: 0,
     nodeType: 'source',
+    children: 3,
+    nodeShape: 'square',
   },
   {
     id: 5,
@@ -27,6 +30,7 @@ export const nodes = [
     group: 1,
     level: 1,
     nodeType: 'vm',
+    children: 2,
   },
   {
     id: 1,
@@ -106,8 +110,10 @@ export const edges = [
     target: 1,
     id: '0-1',
     status: 'danger',
+    type: 'dashed',
     directional: true,
-    label: '350 kbs',
+    label: '20 kbs',
+    animated: true,
   },
   {
     source: 0,

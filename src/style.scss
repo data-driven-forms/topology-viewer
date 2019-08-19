@@ -7,6 +7,7 @@ $background-color: #ededed;
 $selected-color: #0066CC;
 $edge-color: #8B8D8F;
 $overflow-backdrop-color: #d2d2d2;
+$badge-color: #292E34;
 
 @keyframes dash-animation {
   to {
@@ -47,10 +48,13 @@ $overflow-backdrop-color: #d2d2d2;
   .topology-viewer__edge {
     stroke: $edge-color;
     &.animated {
-      animation: dash-animation 35s infinite linear;
+      animation: dash-animation 25s infinite linear;
     }
     &.danger {
       stroke: $danger-color;
+      &.animated {
+        animation: dash-animation 50s infinite linear;
+      }
     }
     &.warning {
       stroke: $warning-color;
@@ -83,6 +87,18 @@ $overflow-backdrop-color: #d2d2d2;
       stroke: $selected-color;
       stroke-width: 4.7;
     }
+  }
+  .topology-viewer__node-group.layer-1 {
+    fill: $background-color;
+    stroke-width: 0.25;
+    opacity: 1;
+    stroke: #aaa;
+  }
+  .topology-viewer__node-group.layer-2 {
+    fill: #d2d2d2;
+    stroke-width: 0.25;
+    stroke: #888;
+    opacity: 1;
   }
   .topology-viewer__node-icon {
     cursor: pointer;
@@ -121,5 +137,17 @@ $overflow-backdrop-color: #d2d2d2;
     &.danger {
       fill: $white-color
     }
+  }
+  .topology-viewer__grouped-node-children-chip {
+    rx: 5px;
+    fill: $badge-color;
+    x: 40px;
+    y: 15px;
+    height: 20px;
+  }
+  .topology-viewer__grouped-node-children-chip-text {
+    fill: $white-color;
+    font-size: 14px;
+    font-weight: 400;
   }
 }

@@ -279,15 +279,51 @@ class TopologyCanvas extends Component {
 
     this.overflowIndicators = this.overflowIndicators.map(indicator => ({ ...indicator, nodes: this.simulation.nodes() }));
 
+    this.updateOverflow();
+
+    this.linkLabelsElements = this.svg.select('#edge-labels')
+    .selectAll('svg')
+    .data(this.edges.filter(({ type, label }) => type !== 'invisible' && label !== undefined))
+    .enter()
+    .append('svg')
+    .attr('width', edge => {
+      const temp = document.createElement('label');
+      temp.innerHTML = edge.label;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      edge.height = temp.getBoundingClientRect().height + 5;
+      document.getElementById('svg-container').removeChild(temp);
+      edge.width = width;
+      return width + 40;
+    })
+    .attr('class', `${this.props.classNamePrefix}__edge-label-cotainer`);
+
+    this.linkLabelsElements
+    .append('rect')
+    .attr('width', ({ width }) => width)
+    .attr('height', ({ height }) => height)
+    .attr('style', 'filter:url(#dropshadow)')
+    .attr('class', ({ status }) =>  `${this.props.classNamePrefix}__edge-label-background ${status || ''}`);
+
+    this.linkLabelsElements
+    .append('text')
+    .text(({ label }) => label)
+    .attr('x', 6)
+    .attr('y', 15.5)
+    .attr('class', ({ status }) => `${this.props.classNamePrefix}__edge-label-text ${status || ''}`);
+
+    this.simulation.force('link').links(this.edges);
+  }
+
+  updateOverflow = () => {
+    const { width, height } = this.svgRef.current.getBoundingClientRect();
     this.overflowIndicatorsElements = d3.select(this.svgRef.current)
     .select('#overflow')
     .selectAll('svg')
     .data(this.overflowIndicators)
     .enter()
     .append('svg')
-    .attr('width', this.props.textIndicatorAttrs.width + 20)
-    .attr('x', ({ position }) => this.calculateIndicatorX(position, width) - 10)
-    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height)) - 10);
+    .attr('width', this.props.textIndicatorAttrs.width + 20);
 
     const getBackdropHeight = position => ({
       bottom: 60,
@@ -340,39 +376,6 @@ class TopologyCanvas extends Component {
     .attr('x', 35)
     .attr('y', 30)
     .attr('class', `${this.props.classNamePrefix}__overflow-text`);
-
-    this.linkLabelsElements = this.svg.select('#edge-labels')
-    .selectAll('svg')
-    .data(this.edges.filter(({ type, label }) => type !== 'invisible' && label !== undefined))
-    .enter()
-    .append('svg')
-    .attr('width', edge => {
-      const temp = document.createElement('label');
-      temp.innerHTML = edge.label;
-      document.getElementById('svg-container').append(temp);
-      const width = temp.getBoundingClientRect().width;
-      edge.height = temp.getBoundingClientRect().height + 5;
-      document.getElementById('svg-container').removeChild(temp);
-      edge.width = width;
-      return width + 40;
-    })
-    .attr('class', `${this.props.classNamePrefix}__edge-label-cotainer`);
-
-    this.linkLabelsElements
-    .append('rect')
-    .attr('width', ({ width }) => width)
-    .attr('height', ({ height }) => height)
-    .attr('style', 'filter:url(#dropshadow)')
-    .attr('class', ({ status }) =>  `${this.props.classNamePrefix}__edge-label-background ${status || ''}`);
-
-    this.linkLabelsElements
-    .append('text')
-    .text(({ label }) => label)
-    .attr('x', 6)
-    .attr('y', 15.5)
-    .attr('class', ({ status }) => `${this.props.classNamePrefix}__edge-label-text ${status || ''}`);
-
-    this.simulation.force('link').links(this.edges);
   }
 
   componentDidUpdate(prevProps) {
@@ -434,7 +437,7 @@ class TopologyCanvas extends Component {
     .force('charge', d3.forceManyBody().strength(-20).distanceMin(100).distanceMax(800))
     .force('x', forceX)
     .force('y',  forceY)
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 4));
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 5));
     this.zoom = d3.zoom().scaleExtent([ .1, 4 ])
     .on('zoom', () => {
       this.transform = d3.event.transform;
@@ -521,7 +524,7 @@ class TopologyCanvas extends Component {
     .attr('d', nodes => {
       let data = nodes;
       if (nodes.length < 3) {
-        data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE, y: y + NODE_SIZE })) ];
+        data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })) ];
       }
 
       const polygon = this.polygonGenerator(data);
@@ -533,7 +536,9 @@ class TopologyCanvas extends Component {
     .attr('y', nodes => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
     .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2);
     this.overflowIndicatorsElements
-    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
+    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial')
+    .attr('x', ({ position }) => this.calculateIndicatorX(position, width) - 10)
+    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height)) - 10);
     this.overflowIndicatorsText
     .text((data) => this.calculateOverflow(data.position, data.nodes, height, width))
     .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');

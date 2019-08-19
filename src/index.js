@@ -429,12 +429,14 @@ class TopologyCanvas extends Component {
     .attr('y1', ({ source: { y }}) => y + NODE_SIZE)
     .attr('x2', ({ target: { x }}) => x + NODE_SIZE)
     .attr('y2', ({ target: { y }}) => y + NODE_SIZE)
+    .attr('class', ({ type, status }) => type === 'invisible' ? '' : `topology-viewer__edge ${ type || 'solid'} ${status || ''}`)
+    .attr('marker-end', ({ directional, status }) => directional ? `url(#${this.props.arrowMarkerId}-${status || 'normal'})` : '')
     .attr('stroke', ({ type }) => {
       return type === 'invisible' ? 'transparent' : 'inherit';
     });
     this.textElements
     .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
-    .attr('y', node => node.y + NODE_SIZE + 5 + NODE_SIZE);
+    .attr('y', node => node.y + NODE_SIZE + 8 + NODE_SIZE);
     this.textElements.selectAll(`text.${this.props.classNamePrefix}__label-text`)
     .attr('class', ({ selected }) => selected
       ? `${this.props.classNamePrefix}__label-text  selected`
@@ -462,8 +464,6 @@ class TopologyCanvas extends Component {
     })
     .attr('y', nodes => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
     .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2);
-    // .attr('width', nodes => Math.max(...nodes.map(({ x }) => x)) - Math.min(...nodes.map(({ x }) => x)) + (NODE_SIZE * 4))
-    // .attr('height', nodes => Math.max(...nodes.map(({ y }) => y)) - Math.min(...nodes.map(({ y }) => y)) + (NODE_SIZE * 4));
     this.overflowIndicatorsElements
     .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
     this.overflowIndicatorsText
@@ -498,6 +498,60 @@ class TopologyCanvas extends Component {
     return (
       <div id="svg-container" className={this.props.className}>
         <svg className={this.props.className} ref={this.svgRef} id="svg">
+          <defs>
+            <marker
+              id={`${this.props.arrowMarkerId}-normal`}
+              className={`${this.props.classNamePrefix}__line-arrow-normal`}
+              markerWidth={NODE_SIZE}
+              markerHeight={NODE_SIZE}
+              refX={NODE_SIZE}
+              refY="3"
+              orient="auto"
+              viewBox="0 0 20 20"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L6,3 z"/>
+            </marker>
+            <marker
+              id={`${this.props.arrowMarkerId}-success`}
+              className={`${this.props.classNamePrefix}__line-arrow-success`}
+              markerWidth={NODE_SIZE}
+              markerHeight={NODE_SIZE}
+              refX={NODE_SIZE}
+              refY="3"
+              orient="auto"
+              viewBox="0 0 20 20"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L6,3 z"/>
+            </marker>
+            <marker
+              id={`${this.props.arrowMarkerId}-warning`}
+              className={`${this.props.classNamePrefix}__line-arrow-warning`}
+              markerWidth={NODE_SIZE}
+              markerHeight={NODE_SIZE}
+              refX={NODE_SIZE}
+              refY="3"
+              orient="auto"
+              viewBox="0 0 20 20"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L6,3 z"/>
+            </marker>
+            <marker
+              id={`${this.props.arrowMarkerId}-danger`}
+              className={`${this.props.classNamePrefix}__line-arrow-danger`}
+              markerWidth={NODE_SIZE}
+              markerHeight={NODE_SIZE}
+              refX={NODE_SIZE}
+              refY="3"
+              orient="auto"
+              viewBox="0 0 20 20"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L6,3 z"/>
+            </marker>
+          </defs>
           <filter id="dropshadow" height="130%">
             <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
             <feOffset dx="2" dy="2" result="offsetblur"/>
@@ -530,6 +584,7 @@ TopologyCanvas.propTypes = {
     rx: PropTypes.number.isRequired,
   }),
   iconMapper: PropTypes.object,
+  arrowMarkerId: PropTypes.string,
 };
 
 TopologyCanvas.defaultProps = {
@@ -543,6 +598,7 @@ TopologyCanvas.defaultProps = {
     height: 30,
     rx: 15,
   },
+  arrowMarkerId: 'line-arrow-marker',
 };
 
 export default TopologyCanvas;

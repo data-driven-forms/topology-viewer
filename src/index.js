@@ -6,7 +6,7 @@ import './style.scss';
 
 const NODE_SIZE = 25;
 
-const levelColors = [ '#FFF', '#ededed', '#d2d2d2', '#d2d2d2' ];
+const levelColors = [ '#FFF', '#f5f5f5', '#d2d2d2', '#d2d2d2' ];
 const levelStrokeWidth = [ NODE_SIZE * 5.5, NODE_SIZE * 4, NODE_SIZE * 3 ];
 
 const circlePath = (cx, cy, r) => `M ${cx},${cy}
@@ -453,16 +453,16 @@ class TopologyCanvas extends Component {
     .id(node => node.id)
     .distance(link => {
       if (link.source.group !== link.target.group) {
-        return 500;
+        return 800;
       }
 
       if (link.source.level !== link.target.level) {
-        return 300;
+        return 200;
       }
 
       return 180;
     })
-    .strength(link => link.source.group !== link.target.group ? 1 : 0.5));
+    .strength(link => link.source.group !== link.target.group ? 0.6 : 1));
 
     window.addEventListener('resize', () => {
       const { width, height } = this.svgRef.current.getBoundingClientRect();

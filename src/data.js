@@ -48,16 +48,19 @@ export const nodes = [
     title: 'Group 2 node 1',
     group: 2,
     nodeType: 'vm',
+    level: 0,
   }, {
     id: 12,
     title: 'Group 2 node 2',
     group: 2,
     nodeType: 'vm',
+    level: 1,
   }, {
     id: 13,
     title: 'Group 2 node 3',
     group: 2,
     nodeType: 'vm',
+    level: 1,
   },
 ];
 export const edges = [

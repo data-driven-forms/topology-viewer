@@ -22,7 +22,7 @@ class TopologyWrapper extends React.Component {
       this.setState(prevState => ({
         add: !prevState.add,
         nodes: [
-          ...prevState.nodes,
+          ...prevState.nodes.map(n => n.id === node.id ? ({ ...n, children: undefined }) : n),
           { id: 'child', title: 'Child to be removed', group: 1, level: 2, nodeType: 'vm' },
           { id: 'child-2', group: 1, title: 'Child 2 to be removed', level: 2, nodeType: 'vm' },
         ],

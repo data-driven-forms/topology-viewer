@@ -1,8 +1,8 @@
 import React, { Component, createRef } from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
-import roundedPolygon from './roundedPolygon';
 import './style.scss';
+import roundedPolygon from './roundedPolygon';
 
 const NODE_SIZE = 25;
 
@@ -27,428 +27,37 @@ a${cornerCurve},${cornerCurve} 0 0 1 ${cornerCurve},-${cornerCurve} z
 
 const hexagonPath = (edgeSize, cornerCurve = 5, offsetX) => roundedPolygon(edgeSize, cornerCurve, offsetX).path;
 
+const mergeAttributes = [ 'x', 'y', 'fx', 'fy', 'vx', 'vy' ];
+const mergeArrays = (arr1, arr2, mergeKey) => {
+  arr1.forEach(item1 => {
+    const item2 = arr2.find(i => item1[mergeKey] === i[mergeKey]) || {};
+    mergeAttributes.forEach(key => {
+      item1[key] = item2[key];
+    });
+  });
+  return arr1;
+};
+
 class TopologyCanvas extends Component {
   constructor(props) {
     super(props);
     this.svgRef = createRef(null);
     this.nodes = [ ...this.props.nodes ];
     this.edges = [ ...this.props.edges ];
-    this.textElements = [];
-    this.nodeElements = [];
-    this.linkElements = [];
-    this.groups = {};
-    this.levelElements = [];
-    this.linkLabelsElements = [];
-    this.selectedNode = undefined;
+    this.selectedNode = {};
+    this.transform = {
+      x: 0,
+      y: 0,
+      k: 1,
+    };
     this.overflowIndicators = [
       { position: 'top', nodes: []},
       { position: 'left', nodes: []},
       { position: 'bottom', nodes: []},
       { position: 'right', nodes: []},
     ];
-    this.overflowIndicatorsText = [];
-    this.transform = {
-      x: 0,
-      y: 0,
-      k: 1,
-    };
-    this.levelGroup;
-    this.minZoom = 1;
-    this.maxZoom = 10;
     window.magix = this;
   }
-
-  zoomed = () => {
-    const currentTransform = d3.event.transform;
-    this.transform = currentTransform;
-    this.simulation.on('tick')();
-    this.svg.attr('transform', currentTransform);
-  }
-
-  updateGraph = ({ nodes, edges }) => {
-    const { width, height } = this.svgRef.current.getBoundingClientRect();
-    const newNodes = this.props.nodes.filter(({ id }) => !nodes.find(node => id === node.id));
-    const obsoleteNodes = nodes.filter(({ id }) => !this.props.nodes.find(node => node.id === id));
-    // remove deleted nodes
-    if (obsoleteNodes.length > 0) {
-      const obsoleteEdges = edges.filter(({ id }) => !this.props.edges.find(edge => id === edge.id));
-      obsoleteEdges.forEach(({ id }) => {
-        this.svg.select('#edges').select(`#link-${id}`).remove();
-        this.linkElements.select('#edges').select(`#link-${id}`).remove();
-      });
-      obsoleteNodes.forEach(({ id }) => {
-        this.svg.select('#nodes').select(`#${id}`).remove();
-        this.svg.select('#labels').select(`#title-${id}`).remove();
-        this.nodeElements.select('#nodes').select(`#${id}`).remove();
-        this.textElements.select('#labels').select(`#title-${id}`).remove();
-      });
-      this.edges = this.edges.filter(({ id }) => !obsoleteEdges.find(edge => edge.id === id));
-      this.nodes = this.nodes.filter(({ id }) => !obsoleteNodes.find(node => node.id === id));
-    }
-
-    // add new nodes
-    if (newNodes.length > 0) {
-      newNodes.forEach(node => {
-        this.nodes.push({ ...node,
-          x: d3.event && d3.event.x / 2 || width / 1.5,
-          y: d3.event && d3.event.y / 2 || height / 1.5,
-        });
-      });
-
-      const newEdges = this.props.edges
-      .filter(edge => !this.edges.find(({ source, target }) => source === edge.source && edge.target === target));
-
-      if (newEdges.length > 0) {
-        newEdges.forEach(edge => this.edges.push(edge));
-      }
-    }
-
-    const nodeIds = this.nodes.map(({ id }) => id);
-    const firstSet = nodeIds.slice(0, nodeIds.length / 2);
-    const secondSet = nodeIds.slice(nodeIds.length / 2);
-    let invisibleEdges = [];
-    firstSet.forEach(id => {
-      invisibleEdges = [ ...invisibleEdges, ...secondSet.map(node => ({ source: node, target: id, type: 'invisible' })) ];
-    });
-    this.edges = [ ...this.edges, ...invisibleEdges ];
-
-    // re-render graph elements
-    const linkElements = this.svg
-    .select('#edges')
-    .selectAll('line')
-    .data(this.edges, ({ id }) => id)
-    .enter()
-    .append('line')
-    .attr('stroke-width', 1)
-    .attr('id', ({ id }) => `link-${id}`)
-    .attr('class', ({ type = 'solid' }) => `${this.props.classNamePrefix}__edge-${type}`);
-
-    this.linkElements = linkElements.merge(this.linkElements);
-
-    const nodeClick = node => {
-      node.fx = null;
-      node.xy = null;
-      if (this.selectedNode && this.selectedNode.id === node.id) {
-        node.selected = false;
-      } else {
-        if (this.selectedNode) {
-          this.selectedNode.selected = false;
-        }
-
-        this.selectedNode = node;
-        node.selected = true;
-      }
-
-      d3.event.stopPropagation();
-      return this.props.handleNodeClick(node);
-    };
-
-    const nodeElements = this.svg
-    .select('#nodes')
-    .selectAll('svg')
-    .data(this.nodes, ({ id }) => id)
-    .enter()
-    .append('svg')
-    .attr('id', node => node.id)
-    .on('click', nodeClick)
-    .attr('style', 'filter:url(#dropshadow)')
-    .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded));
-    /**
-     * only for frouped elements
-     */
-    nodeElements.append('path')
-    .attr('class', `${this.props.classNamePrefix}__node-group layer-2`)
-    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial')
-    .attr('d', ({ nodeShape, children }) => {
-      if (children === undefined) {
-        return '';
-      }
-
-      if (nodeShape === 'square') {
-        return squarePath((NODE_SIZE) * 2, 5, 10);
-      }
-
-      if (nodeShape === 'hexagon') {
-        return hexagonPath(NODE_SIZE, 5, 11);
-      }
-
-      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE, 12);
-    })
-    .on('click', nodeClick);
-    nodeElements.append('path')
-    .attr('class', `${this.props.classNamePrefix}__node-group layer-1`)
-    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial')
-    .attr('d', ({ nodeShape, children }) => {
-      if (children === undefined) {
-        return '';
-      }
-
-      if (nodeShape === 'square') {
-        return squarePath((NODE_SIZE) * 2, 5, 5);
-      }
-
-      if (nodeShape === 'hexagon') {
-        return hexagonPath(NODE_SIZE, 5, 5);
-      }
-
-      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE, 6);
-    })
-    .on('click', nodeClick);
-
-    nodeElements.append('path')
-    .attr('class', ({ children }) => `${this.props.classNamePrefix}__node ${children ? 'grouped' : ''}`)
-    .attr('d', ({ nodeShape }) => {
-      if (nodeShape === 'square') {
-        return squarePath((NODE_SIZE - 2) * 2, 5);
-      }
-
-      if (nodeShape === 'hexagon') {
-        return hexagonPath(NODE_SIZE - 2);
-      }
-
-      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE - 2);
-    })
-    .on('click', nodeClick);
-
-    nodeElements.append('path')
-    .attr('class', `${this.props.classNamePrefix}__node-border`)
-    .attr('d', ({ nodeShape }) => {
-      if (nodeShape === 'square') {
-        return squarePath((NODE_SIZE - 2) * 2, 5);
-      }
-
-      if (nodeShape === 'hexagon') {
-        return hexagonPath(NODE_SIZE - 2);
-      }
-
-      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE - 2);
-    })
-    .on('click', nodeClick);
-
-    nodeElements.
-    append('svg')
-    .on('click', nodeClick)
-    .attr('width', NODE_SIZE)
-    .attr('height', NODE_SIZE)
-    .attr('x', NODE_SIZE / 2)
-    .attr('y', NODE_SIZE / 2)
-    .attr('viewBox', node => this.props.iconMapper[node.nodeType]
-      ? `0 -64 ${this.props.iconMapper[node.nodeType].width} ${this.props.iconMapper[node.nodeType].height}`
-      : '')
-    .append('path')
-    .attr('fill', '#151515')
-    .on('click', nodeClick)
-    .attr('class', `${this.props.classNamePrefix}__node-icon`)
-    .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
-
-    const childrenChip = nodeElements
-    .append('svg')
-    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial');
-
-    childrenChip
-    .append('rect')
-    .attr('width', node => {
-      const temp = document.createElement('label');
-      temp.innerHTML = node.children;
-      document.getElementById('svg-container').append(temp);
-      const width = temp.getBoundingClientRect().width;
-      document.getElementById('svg-container').removeChild(temp);
-      node.width = width;
-      return width + 10;
-    })
-    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip`);
-
-    childrenChip
-    .append('svg')
-    .attr('x', 45)
-    .attr('y', 30)
-    .attr('overflow', 'visible')
-    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip-text-cotainer`)
-    .append('text')
-    .text(node => node.children || '')
-    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip-text`);
-
-    this.nodeElements = nodeElements.merge(this.nodeElements);
-
-    const textElements = this.svg
-    .select('#labels')
-    .selectAll('svg')
-    .data(this.nodes)
-    .enter().append('svg')
-    .attr('id', ({ id }) =>  `title-${id}`)
-    .attr('width', node => {
-      const temp = document.createElement('label');
-      temp.innerHTML = node.title;
-      document.getElementById('svg-container').append(temp);
-      const width = temp.getBoundingClientRect().width;
-      node.height = temp.getBoundingClientRect().height + 15;
-      document.getElementById('svg-container').removeChild(temp);
-      node.width = width + 10;
-      return width + 40;
-    })
-    .attr('class', `${this.props.classNamePrefix}__label-cotainer`);
-
-    textElements.append('rect')
-    .attr('width', ({ width }) => width)
-    .attr('class', `${this.props.classNamePrefix}__label-background`)
-    .attr('style', 'filter:url(#dropshadow)');
-    textElements.append('text')
-    .text(node => node.title)
-    .attr('x', 5)
-    .attr('y', 17.5)
-    .attr('class', `${this.props.classNamePrefix}__label-text`);
-
-    this.textElements = textElements.merge(this.textElements);
-
-    this.simulation.nodes(this.nodes).on('tick', this.ticked);
-
-    this.svg.select('#groups').selectAll('rect').remove();
-    this.svg.select('#levels').selectAll('path').remove();
-    this.svg.select('#edge-labels').selectAll('svg').remove();
-    d3.select(this.svgRef.current).select('#overflow').selectAll('svg').remove();
-    this.groups = {};
-    this.simulation.nodes().forEach(node => {
-      if (!this.groups[node.group]) {
-        this.groups[node.group] = {
-          nodes: [],
-          levels: {},
-        };
-      }
-
-      this.groups[node.group].nodes.push(node);
-    });
-
-    Object.keys(this.groups).forEach(key => {
-      const levelValues = Array.from(new Set(this.groups[key].nodes.filter(({ level }) => level !== undefined).map(({  level }) => level)));
-      const levels = levelValues.reduce((acc, curr) => ({ ...acc, [curr]: []}), {});
-      this.groups[key].nodes.forEach(node => {
-        if (node.level !== undefined) {
-          const includeInto = levelValues.filter(level => level <= node.level);
-          includeInto.forEach(level => levels[level].push(node));
-        }
-      });
-      this.groups[key].levels = levels;
-    });
-
-    const allLevels = Object.values(this.groups)
-    .filter(({ levels }) => levels && Object.keys(levels).length > 0)
-    .map(({ levels }) => Object.values(levels)).flat();
-
-    const levelElements = this.svg
-    .select('#levels')
-    .selectAll('g')
-    .append('g')
-    .data(allLevels)
-    .enter()
-    .append('path')
-    .attr('stroke-width', nodes => levelStrokeWidth[Math.min(...nodes.map(({ level }) => level))]);
-    this.levelElements = levelElements;
-
-    this.overflowIndicators = this.overflowIndicators.map(indicator => ({ ...indicator, nodes: this.simulation.nodes() }));
-
-    this.updateOverflow();
-
-    this.linkLabelsElements = this.svg.select('#edge-labels')
-    .selectAll('svg')
-    .data(this.edges.filter(({ type, label }) => type !== 'invisible' && label !== undefined))
-    .enter()
-    .append('svg')
-    .attr('width', edge => {
-      const temp = document.createElement('label');
-      temp.innerHTML = edge.label;
-      document.getElementById('svg-container').append(temp);
-      const width = temp.getBoundingClientRect().width;
-      edge.height = temp.getBoundingClientRect().height + 5;
-      document.getElementById('svg-container').removeChild(temp);
-      edge.width = width;
-      return width + 40;
-    })
-    .attr('class', `${this.props.classNamePrefix}__edge-label-cotainer`);
-
-    this.linkLabelsElements
-    .append('rect')
-    .attr('width', ({ width }) => width)
-    .attr('height', ({ height }) => height)
-    .attr('style', 'filter:url(#dropshadow)')
-    .attr('class', ({ status }) =>  `${this.props.classNamePrefix}__edge-label-background ${status || ''}`);
-
-    this.linkLabelsElements
-    .append('text')
-    .text(({ label }) => label)
-    .attr('x', 6)
-    .attr('y', 15.5)
-    .attr('class', ({ status }) => `${this.props.classNamePrefix}__edge-label-text ${status || ''}`);
-
-    this.simulation.force('link').links(this.edges);
-  }
-
-  updateOverflow = () => {
-    const { width, height } = this.svgRef.current.getBoundingClientRect();
-    this.overflowIndicatorsElements = d3.select(this.svgRef.current)
-    .select('#overflow')
-    .selectAll('svg')
-    .data(this.overflowIndicators)
-    .enter()
-    .append('svg')
-    .attr('width', this.props.textIndicatorAttrs.width + 20);
-
-    const getBackdropHeight = position => ({
-      bottom: 60,
-      top: 60,
-      left: 50,
-      right: 50,
-    })[position];
-
-    const getBackdropWidth = position => ({
-      bottom: 70,
-      top: 70,
-      left: 100,
-      right: 100,
-    })[position];
-
-    const getBackdropX = position => ({
-      bottom: 0,
-      top: 0,
-      left: -30,
-      right: 0,
-    })[position];
-
-    const getBackdropY = position => ({
-      bottom: 0,
-      top: -10,
-      left: 0,
-      right: 0,
-    })[position];
-
-    this.overflowIndicatorsElements
-    .append('rect')
-    .attr('width', () => this.props.textIndicatorAttrs.width + 20)
-    .attr('height', () => this.props.textIndicatorAttrs.height + 20)
-    .attr('height', ({ position }) => getBackdropHeight(position))
-    .attr('width', ({ position }) => getBackdropWidth(position))
-    .attr('x', ({ position }) => getBackdropX(position))
-    .attr('y', ({ position }) => getBackdropY(position))
-    .attr('class', `${this.props.classNamePrefix}__overflow-text-backdrop`);
-
-    this.overflowIndicatorsElements
-    .append('rect')
-    .attr('width', () => this.props.textIndicatorAttrs.width)
-    .attr('height', () => this.props.textIndicatorAttrs.height)
-    .attr('x', 10)
-    .attr('y', 10)
-    .attr('class', `${this.props.classNamePrefix}__overflow-text-container`);
-
-    this.overflowIndicatorsText = this.overflowIndicatorsElements
-    .append('text')
-    .attr('x', 35)
-    .attr('y', 30)
-    .attr('class', `${this.props.classNamePrefix}__overflow-text`);
-  }
-
-  componentDidUpdate(prevProps) {
-    this.updateGraph(prevProps);
-  }
-
   dragStarted = (d) => {
     d3.event.sourceEvent.stopPropagation();
     if (!d3.event.active) {this.simulation.alphaTarget(0.3).restart();}
@@ -478,46 +87,404 @@ class TopologyCanvas extends Component {
 
   }
 
-  componentDidMount() {
-    this.svg = d3.select(this.svgRef.current).append('g').attr('id', 'container').attr('transform', 'translate(0, 0) scale(1)');
-    const { width, height } = this.svgRef.current.getBoundingClientRect();
-    const forceX = d3.forceX(width / 2).strength(0.21);
-    const forceY = d3.forceY(height / 2).strength(0.21);
+  handleNodeClick = node => {
+    node.fx = null;
+    node.xy = null;
+    this.selectedNode = node;
 
-    this.levelGroup = this.svg.append('g')
-    .attr('id', 'levels');
-    this.linkElements = this.svg.append('g')
-    .attr('id', 'edges');
-    this.linkLabelsElements = this.svg.append('g')
-    .attr('id', 'edge-labels');
-    this.nodeElements = this.svg.append('g')
-    .attr('id', 'nodes');
-    this.textElements = this.svg.append('g')
-    .attr('id', 'labels');
-    this.overflowIndicatorsElements = d3.select(this.svgRef.current).append('g')
-    .attr('id', 'overflow');
+    return this.props.handleNodeClick(node);
+  }
+
+  updateGraph = () => {
+    /**
+     * ******************************************************************
+     * Nodes updates
+     */
+    let node = this.nodeElements;
+    const data = mergeArrays(this.props.nodes, this.nodes, 'id');
+    this.nodes = data;
+    // Apply the general update pattern to the nodes.
+    node = node.data(data, d => d.id);
+
+    node.exit().remove();
+    /**
+     * Main node container
+     */
+    node = node.enter().append('svg')
+    .on('click', this.handleNodeClick)
+    .attr('style', 'filter:url(#dropshadow)')
+    .call(d3.drag().on('start', this.dragStarted).on('drag', this.dragged).on('end', this.dragEnded))
+    .merge(node)
+    .attr('class', node => `${this.props.classNamePrefix}__node ${node.children === undefined ? '' : 'group'}`);
 
     /**
-     * create main simulation for graph
+      * Remove all nested elements
+      */
+    node.selectAll('*').remove();
+    node.append('path')
+    .attr('class', 'layer-2')
+    .attr('d', ({ nodeShape }) => {
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE) * 2, 5, 10);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE, 5, 11);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE, 12);
+    });
+    /**
+     * Group node first layer
      */
-    this.simulation = d3.forceSimulation()
-    .force('charge', d3.forceManyBody().strength(-20).distanceMin(100).distanceMax(800))
-    .force('x', forceX)
-    .force('y',  forceY)
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 5));
-    this.zoom = d3.zoom().scaleExtent([ .1, 4 ])
-    .on('zoom', () => {
-      this.transform = d3.event.transform;
-      this.simulation.on('tick')();
-      this.svg.attr('transform', d3.event.transform);
+    node.append('path')
+    .attr('class', 'layer-1')
+    .attr('d', ({ nodeShape }) => {
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE) * 2, 5, 5);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE, 5, 5);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE, 6);
     });
 
+    /**
+     * Node circle
+     */
+    node.append('path')
+    .attr('class', ({ children }) => `${this.props.classNamePrefix}__node ${children ? 'grouped' : ''}`)
+    .attr('d', ({ nodeShape }) => {
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE - 2) * 2, 5);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE - 2);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE - 2);
+    });
+    /**
+     * Node border
+     */
+    node.append('path')
+    .attr('class', `${this.props.classNamePrefix}__node-border`)
+    .attr('d', ({ nodeShape }) => {
+      if (nodeShape === 'square') {
+        return squarePath((NODE_SIZE - 2) * 2, 5);
+      }
+
+      if (nodeShape === 'hexagon') {
+        return hexagonPath(NODE_SIZE - 2);
+      }
+
+      return circlePath(NODE_SIZE, NODE_SIZE, NODE_SIZE - 2);
+    });
+    /**
+     * Node icon
+     */
+    node.
+    append('svg')
+    .attr('width', NODE_SIZE)
+    .attr('height', NODE_SIZE)
+    .attr('x', NODE_SIZE / 2)
+    .attr('y', NODE_SIZE / 2)
+    .attr('viewBox', node => this.props.iconMapper[node.nodeType]
+      ? `0 -64 ${this.props.iconMapper[node.nodeType].width} ${this.props.iconMapper[node.nodeType].height}`
+      : '')
+    .append('path')
+    .attr('fill', '#151515')
+    .attr('class', `${this.props.classNamePrefix}__node-icon`)
+    .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
+    this.nodeElements = node;
+
+    /**
+     * Node group chip
+     */
+    const childrenChip = node
+    .append('svg')
+    .attr('display', ({ children }) => children === undefined ? 'none' : 'initial');
+    childrenChip
+    .append('rect')
+    .attr('width', node => {
+      const temp = document.createElement('label');
+      temp.innerHTML = node.children;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      document.getElementById('svg-container').removeChild(temp);
+      node.width = width;
+      return width + 10;
+    })
+    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip`);
+
+    childrenChip
+    .append('svg')
+    .attr('x', 45)
+    .attr('y', 30)
+    .attr('overflow', 'visible')
+    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip-text-cotainer`)
+    .append('text')
+    .text(node => node.children || '')
+    .attr('class', `${this.props.classNamePrefix}__grouped-node-children-chip-text`);
+
+    /**
+     * END OF NODE UPDATE
+     * *****************************************************************
+     */
+
+    /**
+     * NODE LABEL ELEMENTS
+     * *****************************************************************
+     */
+    let label = this.textElements;
+    label = label.data(data, d => d.id);
+    label.exit().remove();
+    label.selectAll('*').remove();
+    label = label
+    .enter()
+    .append('svg')
+    .attr('id', ({ id }) =>  `title-${id}`)
+    .attr('width', node => {
+      const temp = document.createElement('label');
+      temp.innerHTML = node.title;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      node.height = temp.getBoundingClientRect().height + 15;
+      document.getElementById('svg-container').removeChild(temp);
+      node.width = width + 10;
+      return width + 40;
+    })
+    .attr('class', `${this.props.classNamePrefix}__label-cotainer`)
+    .merge(label)
+    .attr('width', node => {
+      const temp = document.createElement('label');
+      temp.innerHTML = node.title;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      node.height = temp.getBoundingClientRect().height + 15;
+      document.getElementById('svg-container').removeChild(temp);
+      node.width = width + 10;
+      return width + 40;
+    });
+
+    label.append('rect')
+    .attr('width', ({ width }) => width)
+    .attr('class', `${this.props.classNamePrefix}__label-background`)
+    .attr('style', 'filter:url(#dropshadow)');
+    label.append('text')
+    .text(node => node.title)
+    .attr('x', 5)
+    .attr('y', 17.5)
+    .attr('class', `${this.props.classNamePrefix}__label-text`);
+
+    this.textElements = label;
+    /**
+     * END OF NODE LABEL ELEMENTS
+     * *****************************************************************
+     */
+    /**
+     * *****************************************************************
+     * START OF LEVEL ELEMENTS
+     */
+    /**
+     * Compute groups
+     */
+    this.groups = {};
+    this.nodes.forEach(node => {
+      if (!this.groups[node.group]) {
+        this.groups[node.group] = {
+          nodes: [],
+          levels: {},
+        };
+      }
+
+      this.groups[node.group].nodes.push(node);
+    });
+
+    Object.keys(this.groups).forEach(key => {
+      const levelValues = Array.from(new Set(this.groups[key].nodes.filter(({ level }) => level !== undefined).map(({  level }) => level)));
+      const levels = levelValues.reduce((acc, curr) => ({ ...acc, [curr]: []}), {});
+      this.groups[key].nodes.forEach(node => {
+        if (node.level !== undefined) {
+          const includeInto = levelValues.filter(level => level <= node.level);
+          includeInto.forEach(level => levels[level].push(node));
+        }
+      });
+      this.groups[key].levels = levels;
+    });
+    /**
+     * compute level nodes
+     */
+    const allLevels = Object.values(this.groups)
+    .filter(({ levels }) => levels && Object.keys(levels).length > 0)
+    .map(({ levels }) => Object.values(levels)).flat();
+
+    let level = this.levelGroup;
+    level = level.data(allLevels);
+    level.exit().remove();
+    level.selectAll('*').remove();
+    level = level
+    .enter()
+    .append('path')
+    .attr('stroke-width', nodes => levelStrokeWidth[Math.min(...nodes.map(({ level }) => level))])
+    .merge(level)
+    .attr('stroke-width', nodes => levelStrokeWidth[Math.min(...nodes.map(({ level }) => level))]);
+
+    this.levelGroup = level;
+    /**
+     * END OF LEVEL ELEMENTS
+     * *****************************************************************
+     */
+    /**
+     * *****************************************************************
+     * START OF OVERFLOW INDICATORS
+     */
+    this.overflowIndicators = this.overflowIndicators.map(indicator => ({ ...indicator, nodes: this.nodes }));
+
+    let overflow = this.overflowIndicatorsElements;
+    overflow = overflow.data(this.overflowIndicators);
+    overflow.exit().remove();
+    overflow.selectAll('*').remove();
+
+    overflow = overflow
+    .enter()
+    .append('svg')
+    .attr('width', this.props.textIndicatorAttrs.width + 20)
+    .merge(overflow);
+
+    const getBackdropHeight = position => ({
+      bottom: 60,
+      top: 60,
+      left: 50,
+      right: 50,
+    })[position];
+
+    const getBackdropWidth = position => ({
+      bottom: 70,
+      top: 70,
+      left: 100,
+      right: 100,
+    })[position];
+
+    const getBackdropX = position => ({
+      bottom: 0,
+      top: 0,
+      left: -30,
+      right: 0,
+    })[position];
+
+    const getBackdropY = position => ({
+      bottom: 0,
+      top: -10,
+      left: 0,
+      right: 0,
+    })[position];
+
+    overflow
+    .append('rect')
+    .attr('width', () => this.props.textIndicatorAttrs.width + 20)
+    .attr('height', () => this.props.textIndicatorAttrs.height + 20)
+    .attr('height', ({ position }) => getBackdropHeight(position))
+    .attr('width', ({ position }) => getBackdropWidth(position))
+    .attr('x', ({ position }) => getBackdropX(position))
+    .attr('y', ({ position }) => getBackdropY(position))
+    .attr('class', `${this.props.classNamePrefix}__overflow-text-backdrop`);
+
+    overflow
+    .append('rect')
+    .attr('width', () => this.props.textIndicatorAttrs.width)
+    .attr('height', () => this.props.textIndicatorAttrs.height)
+    .attr('x', 10)
+    .attr('y', 10)
+    .attr('class', `${this.props.classNamePrefix}__overflow-text-container`);
+
+    overflow
+    .append('text')
+    .attr('x', 35)
+    .attr('y', 30)
+    .attr('class', `${this.props.classNamePrefix}__overflow-text`);
+    this.overflowIndicatorsElements = overflow;
+    /**
+     * END OF OVERFLOW INDICATORS
+     * *****************************************************************
+     */
+    this.simulation.nodes(this.nodes).on('tick', this.ticked);
+    /**
+     * *****************************************************************
+     * START OF LINK ELEMENTS
+     */
+    const nodeIds = this.nodes.map(({ id }) => id);
+    const firstSet = nodeIds.slice(0, nodeIds.length / 2);
+    const secondSet = nodeIds.slice(nodeIds.length / 2);
+    let invisibleEdges = [];
+    firstSet.forEach(id => {
+      invisibleEdges = [ ...invisibleEdges, ...secondSet.map(node => ({ source: node, target: id, type: 'invisible' })) ];
+    });
+    this.edges = this.props.edges.map(edge => ({
+      ...edge,
+      source: this.simulation.nodes().find(({ id }) => id === edge.source),
+      target: this.simulation.nodes().find(({ id }) => id === edge.target),
+    }));
+    this.edges = [ ...this.edges, ...invisibleEdges ];
+    this.simulation.force('link').links(this.edges);
+
+    let link = this.linkElements;
+    link = link.data(this.edges, edge => edge.id);
+
+    link.exit().remove();
+    link.selectAll('link').remove();
+    link = link
+    .enter()
+    .append('line')
+    .attr('id', ({ id }) => `link-${id}`)
+    .attr('class', ({ type = 'solid' }) => `${this.props.classNamePrefix}__edge-${type}`)
+    .merge(link);
+
+    this.linkElements = link;
+
+    /**
+     * END OF LINK ELEMENTS
+     * *****************************************************************
+     */
+  }
+
+  componentDidUpdate() {
+    this.updateGraph();
+  }
+
+  componentDidMount() {
+    const { width, height } = this.svgRef.current.getBoundingClientRect();
+    const forceX = d3.forceX(width / 2).strength(0.1);
+    const forceY = d3.forceY(height / 2).strength(0.1);
+    this.svg = d3.select(this.svgRef.current)
+    .append('g')
+    .attr('id', 'container')
+    .attr('transform', 'translate(0, 0) scale(1)');
+    /**
+     * polygon line
+     */
     this.valueLine = d3.line()
     .x(d => d[0] + NODE_SIZE)
     .y(d => d[1])
     .curve(d3.curveCatmullRomClosed);
+    /**
+     * Add different element groups
+     */
+    this.levelGroup = this.svg.append('g').attr('id', 'levels').selectAll('g').append('g');
+    this.linkElements = this.svg.append('g').attr('id', 'edges').selectAll('line');
+    this.nodeElements = this.svg.append('g').attr('id', 'nodes').selectAll('svg');
+    this.textElements = this.svg.append('g').attr('id', 'labels').selectAll('svg');
+    this.overflowIndicatorsElements = d3.select(this.svgRef.current).append('g').attr('id', 'overflow').selectAll('svg');
 
-    d3.select(this.svgRef.current).call(this.zoom);
+    this.simulation = d3.forceSimulation(this.props.nodes)
+    .force('charge', d3.forceManyBody().strength(-20).distanceMin(100).distanceMax(800))
+    .force('x', forceX)
+    .force('y',  forceY)
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 5))
+    .on('tick', this.ticked);
 
     this.simulation.force('link', d3.forceLink()
     .id(node => node.id)
@@ -532,8 +499,18 @@ class TopologyCanvas extends Component {
 
       return 180;
     })
-    .strength(link => link.source.group !== link.target.group ? 0.6 : 1));
+    .strength(link => link.source.group !== link.target.group ? 0.2 : 1));
 
+    this.zoom = d3.zoom().scaleExtent([ .1, 4 ])
+    .on('zoom', () => {
+      this.transform = d3.event.transform;
+      this.simulation.on('tick')();
+      this.svg.attr('transform', d3.event.transform);
+    });
+    /**
+     * Add zoom to container
+     */
+    d3.select(this.svgRef.current).call(this.zoom);
     window.addEventListener('resize', () => {
       const { width, height } = this.svgRef.current.getBoundingClientRect();
       const forceX = d3.forceX(width / 2).strength(0.21);
@@ -544,71 +521,11 @@ class TopologyCanvas extends Component {
       this.simulation.on('tick')();
     });
 
-    this.updateGraph(this.props);
+    this.updateGraph();
   }
 
   componentWillUnmount() {
     window.removeEventListener('resize', this.updateDimensions);
-  }
-
-  ticked = () => {
-    const { width, height } = this.svgRef.current.getBoundingClientRect();
-    this.nodeElements
-    .attr('x', node => node.x)
-    .attr('y', node => node.y);
-    this.nodeElements.selectAll(`path.${this.props.classNamePrefix}__node-border`)
-    .attr('class', ({ selected }) => selected ? `${this.props.classNamePrefix}__node-border selected` : `${this.props.classNamePrefix}__node-border`);
-    this.linkElements
-    .attr('x1', ({ source: { x }}) => x + NODE_SIZE)
-    .attr('y1', ({ source: { y }}) => y + NODE_SIZE)
-    .attr('x2', ({ target: { x }}) => x + NODE_SIZE)
-    .attr('y2', ({ target: { y }}) => y + NODE_SIZE)
-    .attr('class', ({ type, status, animated }) => type === 'invisible'
-      ? '' : `topology-viewer__edge ${ type || 'solid'} ${status || ''} ${animated ? 'animated' : ''}`)
-    .attr('marker-end', ({ directional, status }) => directional ? `url(#${this.props.arrowMarkerId}-${status || 'normal'})` : '')
-    .attr('stroke', ({ type }) => {
-      return type === 'invisible' ? 'transparent' : 'inherit';
-    });
-    this.linkLabelsElements
-    .attr('x', ({ source, target }) => (source.x + target.x) / 2)
-    .attr('y', ({ source, target }) => (source.y + target.y) / 2 + NODE_SIZE / 2);
-    this.textElements
-    .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
-    .attr('y', node => node.y + NODE_SIZE + 8 + NODE_SIZE);
-    this.textElements.selectAll(`text.${this.props.classNamePrefix}__label-text`)
-    .attr('class', ({ selected }) => selected
-      ? `${this.props.classNamePrefix}__label-text  selected`
-      : `${this.props.classNamePrefix}__label-text `);
-    this.textElements.selectAll(`rect.${this.props.classNamePrefix}__label-background`)
-    .attr('class', ({ selected }) => selected
-      ? `${this.props.classNamePrefix}__label-background  selected`
-      : `${this.props.classNamePrefix}__label-background `);
-
-    this.levelElements
-    .attr('opacity', 1)
-    .attr('stroke', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
-    .attr('fill', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
-    .attr('d', nodes => {
-      let data = nodes;
-      if (nodes.length < 3) {
-        data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })) ];
-      }
-
-      const polygon = this.polygonGenerator(data);
-      const hull = d3.polygonHull(polygon);
-      return this.valueLine(hull.map(([ x, y ]) => {
-        return [ x, y ];
-      }));
-    })
-    .attr('y', nodes => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
-    .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2);
-    this.overflowIndicatorsElements
-    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial')
-    .attr('x', ({ position }) => this.calculateIndicatorX(position, width) - 10)
-    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height)) - 10);
-    this.overflowIndicatorsText
-    .text((data) => this.calculateOverflow(data.position, data.nodes, height, width))
-    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
   }
 
   polygonGenerator = nodes => nodes.map(({ x, y }) => [ x, y + NODE_SIZE ])
@@ -633,6 +550,75 @@ class TopologyCanvas extends Component {
     left: height / 2,
     right: height / 2 - 40,
   })[position]
+
+  ticked = () => {
+    const { width, height } = this.svgRef.current.getBoundingClientRect();
+    /**
+     * Nodes tick
+     */
+    this.nodeElements
+    .attr('x', d => d.x)
+    .attr('y', d => d.y);
+    this.nodeElements.selectAll(`path.${this.props.classNamePrefix}__node-border`)
+    .attr('class', ({ id }) => `${this.props.classNamePrefix}__node-border${this.selectedNode.id === id ? ' selected' : ''}`);
+    /**
+     * Node labels tick
+     */
+    this.textElements
+    .attr('x', node => node.x - node.width / 2 + NODE_SIZE)
+    .attr('y', node => node.y + NODE_SIZE + 8 + NODE_SIZE);
+    this.textElements.selectAll(`text.${this.props.classNamePrefix}__label-text`)
+    .attr('class', ({ id }) => `${this.props.classNamePrefix}__label-text${this.selectedNode.id === id ? ' selected' : ''}`);
+    this.textElements.selectAll(`rect.${this.props.classNamePrefix}__label-background`)
+    .attr('class', ({ id }) => `${this.props.classNamePrefix}__label-background${this.selectedNode.id === id ? ' selected' : ''}`);
+    /**
+     * Node levels tick
+     */
+    this.levelGroup
+    .attr('opacity', 1)
+    .attr('stroke', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
+    .attr('fill', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
+    .attr('d', nodes => {
+      let data = nodes;
+      if (nodes.length < 3) {
+        data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })) ];
+      }
+
+      const polygon = this.polygonGenerator(data);
+      const hull = d3.polygonHull(polygon);
+      return this.valueLine(hull.map(([ x, y ]) => {
+        return [ x, y ];
+      }));
+    })
+    .attr('y', nodes => Math.min(...nodes.map(({ y }) => y)) - NODE_SIZE * 2)
+    .attr('x', nodes => Math.min(...nodes.map(({ x }) => x)) - NODE_SIZE * 2);
+
+    /**
+     * Overflow indicators
+     */
+    this.overflowIndicatorsElements
+    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial')
+    .attr('x', ({ position }) => this.calculateIndicatorX(position, width) - 10)
+    .attr('y', ({ position }) => (this.calculateIndicatorY(position, height)) - 10);
+    this.overflowIndicatorsElements.selectAll('text')
+    .text((data) => this.calculateOverflow(data.position, data.nodes, height, width))
+    .attr('display', (data) => this.calculateOverflow(data.position, data.nodes, height, width) === 0 ? 'none' : 'initial');
+
+    /**
+     * Link tick
+     */
+    this.linkElements
+    .attr('x1', ({ source: { x }}) => x + NODE_SIZE)
+    .attr('y1', ({ source: { y }}) => y + NODE_SIZE)
+    .attr('x2', ({ target: { x }}) => x + NODE_SIZE)
+    .attr('y2', ({ target: { y }}) => y + NODE_SIZE)
+    .attr('class', ({ type, status, animated }) => type === 'invisible'
+      ? '' : `topology-viewer__edge ${ type || 'solid'} ${status || ''} ${animated ? 'animated' : ''}`)
+    .attr('marker-end', ({ directional, status }) => directional ? `url(#${this.props.arrowMarkerId}-${status || 'normal'})` : '')
+    .attr('stroke', ({ type }) => {
+      return type === 'invisible' ? 'transparent' : 'inherit';
+    });
+  }
 
   render() {
     return (

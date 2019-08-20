@@ -88,17 +88,22 @@ $badge-color: #292E34;
       stroke-width: 4.7;
     }
   }
-  .topology-viewer__node-group.layer-1 {
+  .layer-1, .layer-2 {
+    display: none;
+  }
+  .topology-viewer__node.group .layer-1 {
     fill: $background-color;
     stroke-width: 0.25;
     opacity: 1;
     stroke: #aaa;
+    display: initial;
   }
-  .topology-viewer__node-group.layer-2 {
+  .topology-viewer__node.group .layer-2 {
     fill: #d2d2d2;
     stroke-width: 0.25;
     stroke: #888;
     opacity: 1;
+    display: initial
   }
   .topology-viewer__node-icon {
     cursor: pointer;
@@ -144,8 +149,10 @@ $badge-color: #292E34;
     x: 40px;
     y: 15px;
     height: 20px;
+    stroke-width: 0;
   }
   .topology-viewer__grouped-node-children-chip-text {
+    stroke-width: 0;
     fill: $white-color;
     font-size: 14px;
     font-weight: 400;

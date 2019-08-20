@@ -56,6 +56,7 @@ class TopologyCanvas extends Component {
       { position: 'bottom', nodes: []},
       { position: 'right', nodes: []},
     ];
+    this.lastClickCoords = {};
     window.magix = this;
   }
   dragStarted = (d) => {
@@ -91,6 +92,11 @@ class TopologyCanvas extends Component {
     node.fx = null;
     node.xy = null;
     this.selectedNode = node;
+    console.log(d3.event);
+    this.lastClickCoords = {
+      x: d3.event.x,
+      y: d3.event.y,
+    };
 
     return this.props.handleNodeClick(node);
   }
@@ -101,7 +107,18 @@ class TopologyCanvas extends Component {
      * Nodes updates
      */
     let node = this.nodeElements;
-    const data = mergeArrays(this.props.nodes, this.nodes, 'id');
+    const data = mergeArrays(this.props.nodes, this.nodes, 'id').map(node => {
+      if (!node.x) {
+        node.x = this.lastClickCoords.x;
+      }
+
+      if (!node.y) {
+        node.y = this.lastClickCoords.y;
+      }
+
+      return node;
+    });
+
     this.nodes = data;
     // Apply the general update pattern to the nodes.
     node = node.data(data, d => d.id);
@@ -449,6 +466,60 @@ class TopologyCanvas extends Component {
      * END OF LINK ELEMENTS
      * *****************************************************************
      */
+    /**
+     * *****************************************************************
+     * START OF LINK LABEL ELEMENTS
+     */
+    let linkLabel = this.linkLabelsElements;
+    linkLabel = linkLabel.data(this.edges.filter(({ type, label }) => type !== 'invisible' && label !== undefined));
+    linkLabel.exit().remove();
+    linkLabel.selectAll('*').remove();
+    linkLabel = linkLabel
+    .enter()
+    .append('svg')
+    .attr('width', edge => {
+      const temp = document.createElement('label');
+      temp.innerHTML = edge.label;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      edge.height = temp.getBoundingClientRect().height + 5;
+      document.getElementById('svg-container').removeChild(temp);
+      edge.width = width;
+      return width + 40;
+    })
+    .attr('class', `${this.props.classNamePrefix}__edge-label-cotainer`)
+    .merge(linkLabel)
+    .attr('class', `${this.props.classNamePrefix}__edge-label-cotainer`)
+    .attr('width', edge => {
+      const temp = document.createElement('label');
+      temp.innerHTML = edge.label;
+      document.getElementById('svg-container').append(temp);
+      const width = temp.getBoundingClientRect().width;
+      edge.height = temp.getBoundingClientRect().height + 5;
+      document.getElementById('svg-container').removeChild(temp);
+      edge.width = width;
+      return width + 40;
+    });
+
+    linkLabel
+    .append('rect')
+    .attr('width', ({ width }) => width)
+    .attr('height', ({ height }) => height)
+    .attr('style', 'filter:url(#dropshadow)')
+    .attr('class', ({ status }) =>  `${this.props.classNamePrefix}__edge-label-background ${status || ''}`);
+
+    linkLabel
+    .append('text')
+    .text(({ label }) => label)
+    .attr('x', 6)
+    .attr('y', 15.5)
+    .attr('class', ({ status }) => `${this.props.classNamePrefix}__edge-label-text ${status || ''}`);
+
+    this.linkLabelsElements = linkLabel;
+    /**
+     * END OF LINK LABEL ELEMENTS
+     * *****************************************************************
+     */
   }
 
   componentDidUpdate() {
@@ -475,15 +546,16 @@ class TopologyCanvas extends Component {
      */
     this.levelGroup = this.svg.append('g').attr('id', 'levels').selectAll('g').append('g');
     this.linkElements = this.svg.append('g').attr('id', 'edges').selectAll('line');
+    this.linkLabelsElements = this.svg.append('g').attr('id', 'edge-labels').selectAll('svg');
     this.nodeElements = this.svg.append('g').attr('id', 'nodes').selectAll('svg');
     this.textElements = this.svg.append('g').attr('id', 'labels').selectAll('svg');
     this.overflowIndicatorsElements = d3.select(this.svgRef.current).append('g').attr('id', 'overflow').selectAll('svg');
 
     this.simulation = d3.forceSimulation(this.props.nodes)
-    .force('charge', d3.forceManyBody().strength(-20).distanceMin(100).distanceMax(800))
+    .force('charge', d3.forceManyBody().strength(10).distanceMin(50).distanceMax(800))
     .force('x', forceX)
     .force('y',  forceY)
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 5))
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 3))
     .on('tick', this.ticked);
 
     this.simulation.force('link', d3.forceLink()
@@ -494,10 +566,10 @@ class TopologyCanvas extends Component {
       }
 
       if (link.source.level !== link.target.level) {
-        return 200;
+        return 100;
       }
 
-      return 180;
+      return 150;
     })
     .strength(link => link.source.group !== link.target.group ? 0.2 : 1));
 
@@ -618,6 +690,13 @@ class TopologyCanvas extends Component {
     .attr('stroke', ({ type }) => {
       return type === 'invisible' ? 'transparent' : 'inherit';
     });
+
+    /**
+     * Link label tick
+     */
+    this.linkLabelsElements
+    .attr('x', ({ source, target }) => (source.x + target.x) / 2)
+    .attr('y', ({ source, target }) => (source.y + target.y) / 2 + NODE_SIZE / 2);
   }
 
   render() {

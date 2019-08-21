@@ -568,7 +568,7 @@ class TopologyCanvas extends Component {
 
       return 1;
     }))
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2))
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2.5))
     .force('x', forceX)
     .force('y', forceY)
     .on('tick', this.ticked);
@@ -653,10 +653,7 @@ class TopologyCanvas extends Component {
     .attr('d', nodes => {
       let data = nodes;
       if (nodes.length < 2) {
-        data = [
-          ...nodes,
-          ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })),
-          ...nodes.map(({ x, y }) => ({ x: x - NODE_SIZE / 2, y: y - NODE_SIZE / 2 })) ];
+        return circlePath(nodes[0].x + NODE_SIZE, nodes[0].y + NODE_SIZE, NODE_SIZE);
       } else if (nodes.length < 3) {
         data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })) ];
       }

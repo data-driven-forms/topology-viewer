@@ -6,8 +6,8 @@ import roundedPolygon from './roundedPolygon';
 
 const NODE_SIZE = 25;
 
-const levelColors = [ '#FFF', '#f5f5f5', '#d2d2d2', '#d2d2d2' ];
-const levelStrokeWidth = [ NODE_SIZE * 5.5, NODE_SIZE * 4, NODE_SIZE * 3 ];
+const levelColors = [ '#FFF', '#f5f5f5', '#d2d2d2', '#72767b', '#d2d2d2', '#72767b', '#d2d2d2', '#d2d2d2' ];
+const levelStrokeWidth = [ NODE_SIZE * 5.5, NODE_SIZE * 4, NODE_SIZE * 3, NODE_SIZE * 3, NODE_SIZE * 3, NODE_SIZE * 3 ];
 
 const circlePath = (cx, cy, r, offset = 0) => `M ${cx + offset},${cy}
 m ${-r}, 0
@@ -92,7 +92,6 @@ class TopologyCanvas extends Component {
     node.fx = null;
     node.xy = null;
     this.selectedNode = node;
-    console.log(d3.event);
     this.lastClickCoords = {
       x: d3.event.x,
       y: d3.event.y,
@@ -102,6 +101,7 @@ class TopologyCanvas extends Component {
   }
 
   updateGraph = () => {
+    const { width, height } = this.svgRef.current.getBoundingClientRect();
     /**
      * ******************************************************************
      * Nodes updates
@@ -109,11 +109,11 @@ class TopologyCanvas extends Component {
     let node = this.nodeElements;
     const data = mergeArrays(this.props.nodes, this.nodes, 'id').map(node => {
       if (!node.x) {
-        node.x = this.lastClickCoords.x;
+        node.x = this.selectedNode && this.selectedNode.x ? this.selectedNode.x : width / 2;
       }
 
       if (!node.y) {
-        node.y = this.lastClickCoords.y;
+        node.y = this.selectedNode && this.selectedNode.y ? this.selectedNode.y : height / 2;
       }
 
       return node;
@@ -330,6 +330,12 @@ class TopologyCanvas extends Component {
           includeInto.forEach(level => levels[level].push(node));
         }
       });
+      const additionalNodes = this.nodes.filter(({ mainGroup, group }) => group !== mainGroup && mainGroup === key);
+      console.log('additional nodes: ', additionalNodes, levels);
+      if (levels[0]) {
+        levels[0] = [ ...levels[0], ...additionalNodes ];
+      }
+
       this.groups[key].levels = levels;
     });
     /**
@@ -433,19 +439,11 @@ class TopologyCanvas extends Component {
      * *****************************************************************
      * START OF LINK ELEMENTS
      */
-    const nodeIds = this.nodes.map(({ id }) => id);
-    const firstSet = nodeIds.slice(0, nodeIds.length / 2);
-    const secondSet = nodeIds.slice(nodeIds.length / 2);
-    let invisibleEdges = [];
-    firstSet.forEach(id => {
-      invisibleEdges = [ ...invisibleEdges, ...secondSet.map(node => ({ source: node, target: id, type: 'invisible' })) ];
-    });
     this.edges = this.props.edges.map(edge => ({
       ...edge,
       source: this.simulation.nodes().find(({ id }) => id === edge.source),
       target: this.simulation.nodes().find(({ id }) => id === edge.target),
     }));
-    this.edges = [ ...this.edges, ...invisibleEdges ];
     this.simulation.force('link').links(this.edges);
 
     let link = this.linkElements;
@@ -524,12 +522,16 @@ class TopologyCanvas extends Component {
 
   componentDidUpdate() {
     this.updateGraph();
+    this.simulation.alpha(0.1);
+    this.simulation.alphaDecay(0.01);
+    this.simulation.alphaTarget(0);
+    this.simulation.restart();
   }
 
   componentDidMount() {
     const { width, height } = this.svgRef.current.getBoundingClientRect();
-    const forceX = d3.forceX(width / 2).strength(0.1);
-    const forceY = d3.forceY(height / 2).strength(0.1);
+    const forceX = d3.forceX(width / 2).strength(0.01);
+    const forceY = d3.forceY(height / 2).strength(0.01);
     this.svg = d3.select(this.svgRef.current)
     .append('g')
     .attr('id', 'container')
@@ -552,26 +554,24 @@ class TopologyCanvas extends Component {
     this.overflowIndicatorsElements = d3.select(this.svgRef.current).append('g').attr('id', 'overflow').selectAll('svg');
 
     this.simulation = d3.forceSimulation(this.props.nodes)
-    .force('charge', d3.forceManyBody().strength(10).distanceMin(50).distanceMax(800))
-    .force('x', forceX)
-    .force('y',  forceY)
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 3))
-    .on('tick', this.ticked);
-
-    this.simulation.force('link', d3.forceLink()
-    .id(node => node.id)
-    .distance(link => {
-      if (link.source.group !== link.target.group) {
-        return 800;
-      }
-
-      if (link.source.level !== link.target.level) {
-        return 100;
+    .force('charge', d3.forceManyBody().strength(-150))
+    .force('link', d3.forceLink(this.edges).id(d => d.id).distance(({ source, target }) => {
+      if ((target.group !== source.group) && (target.wasClicked)) {
+        return 400;
       }
 
       return 150;
-    })
-    .strength(link => link.source.group !== link.target.group ? 0.2 : 1));
+    }).strength(({ source, target }) => {
+      if ((target.group !== source.group) && (target.wasClicked)) {
+        return 1.5;
+      }
+
+      return 1;
+    }))
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2))
+    .force('x', forceX)
+    .force('y', forceY)
+    .on('tick', this.ticked);
 
     this.zoom = d3.zoom().scaleExtent([ .1, 4 ])
     .on('zoom', () => {
@@ -652,7 +652,12 @@ class TopologyCanvas extends Component {
     .attr('fill', nodes => levelColors[Math.min(...nodes.map(({ level }) => level))])
     .attr('d', nodes => {
       let data = nodes;
-      if (nodes.length < 3) {
+      if (nodes.length < 2) {
+        data = [
+          ...nodes,
+          ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })),
+          ...nodes.map(({ x, y }) => ({ x: x - NODE_SIZE / 2, y: y - NODE_SIZE / 2 })) ];
+      } else if (nodes.length < 3) {
         data = [ ...nodes, ...nodes.map(({ x, y }) => ({ x: x + NODE_SIZE / 2, y: y + NODE_SIZE / 2 })) ];
       }
 

@@ -331,7 +331,6 @@ class TopologyCanvas extends Component {
         }
       });
       const additionalNodes = this.nodes.filter(({ mainGroup, group }) => group !== mainGroup && mainGroup === key);
-      console.log('additional nodes: ', additionalNodes, levels);
       if (levels[0]) {
         levels[0] = [ ...levels[0], ...additionalNodes ];
       }

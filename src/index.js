@@ -440,8 +440,8 @@ class TopologyCanvas extends Component {
      */
     this.edges = this.props.edges.map(edge => ({
       ...edge,
-      source: this.simulation.nodes().find(({ id }) => id === edge.source),
-      target: this.simulation.nodes().find(({ id }) => id === edge.target),
+      source: this.nodes.find(({ id }) => typeof edge.source === 'object' ? id === edge.source.id : id === edge.source),
+      target: this.nodes.find(({ id }) => typeof edge.target === 'object' ? id === edge.target.id : id === edge.target),
     }));
     this.simulation.force('link').links(this.edges);
 
@@ -557,6 +557,8 @@ class TopologyCanvas extends Component {
     .force('link', d3.forceLink(this.edges).id(d => d.id).distance(({ source, target }) => {
       if ((target.group !== source.group) && (target.wasClicked)) {
         return 400;
+      } else if (target.group !== source.group) {
+        return 300;
       }
 
       return 150;
@@ -567,7 +569,7 @@ class TopologyCanvas extends Component {
 
       return 1;
     }))
-    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 2.5))
+    .force('collision', d3.forceCollide().radius(() => NODE_SIZE * 3.5))
     .force('x', forceX)
     .force('y', forceY)
     .on('tick', this.ticked);

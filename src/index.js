@@ -215,7 +215,8 @@ class TopologyCanvas extends Component {
     .append('path')
     .attr('fill', '#151515')
     .attr('class', `${this.props.classNamePrefix}__node-icon`)
-    .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData);
+    .attr('d', node => this.props.iconMapper[node.nodeType].svgPathData)
+    .attr('transform', node => this.props.iconMapper[node.nodeType].transform);
     this.nodeElements = node;
 
     /**

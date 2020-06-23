@@ -586,12 +586,6 @@ class TopologyCanvas extends Component {
      */
     d3.select(this.svgRef.current).call(this.zoom);
     window.addEventListener('resize', () => {
-      const { width, height } = this.svgRef.current.getBoundingClientRect();
-      const forceX = d3.forceX(width / 2).strength(0.21);
-      const forceY = d3.forceY(height / 2).strength(0.21);
-      this.simulation
-      .force('x', forceX)
-      .force('y',  forceY);
       this.simulation.on('tick')();
     });
 

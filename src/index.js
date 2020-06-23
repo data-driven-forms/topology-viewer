@@ -585,7 +585,7 @@ class TopologyCanvas extends Component {
      * Add zoom to container
      */
     d3.select(this.svgRef.current).call(this.zoom);
-    window.addEventListener('resize', () => {
+    this.resizeListener = window.addEventListener('resize', () => {
       this.simulation.on('tick')();
     });
 
@@ -593,7 +593,8 @@ class TopologyCanvas extends Component {
   }
 
   componentWillUnmount() {
-    window.removeEventListener('resize', this.updateDimensions);
+    this.simulation.stop();
+    window.removeEventListener('resize', this.resizeListener);
   }
 
   polygonGenerator = nodes => nodes.map(({ x, y }) => [ x, y + NODE_SIZE ])

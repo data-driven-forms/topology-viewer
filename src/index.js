@@ -44,7 +44,7 @@ class TopologyCanvas extends Component {
     this.svgRef = createRef(null);
     this.nodes = [ ...this.props.nodes ];
     this.edges = [ ...this.props.edges ];
-    this.selectedNode = {};
+    this.selectedNode = this.props.selectedNode;
     this.transform = {
       x: 0,
       y: 0,
@@ -789,6 +789,9 @@ TopologyCanvas.propTypes = {
   }),
   iconMapper: PropTypes.object,
   arrowMarkerId: PropTypes.string,
+  selectedNode: PropTypes.shape({
+    id: PropTypes.oneOfType([ PropTypes.string, PropTypes.number ]),
+  }),
 };
 
 TopologyCanvas.defaultProps = {
@@ -803,6 +806,7 @@ TopologyCanvas.defaultProps = {
     rx: 15,
   },
   arrowMarkerId: 'line-arrow-marker',
+  selectedNode: {},
 };
 
 export default TopologyCanvas;
